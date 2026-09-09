@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ma Collection Éthique (Supabase)</title>
+    <style>
+        /* Mêmes styles que précédemment */
+        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --card-bg: #ffffff; --text: #333; --tab-active: #2c3e50; --tab-inactive: #bdc3c7; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; line-height: 1.6; padding-bottom: 40px; }
+        .container { max-width: 800px; margin: 0 auto; padding: 15px; }
+        h1 { text-align: center; color: var(--primary); font-size: 1.5rem; margin-bottom: 10px; }
+        .status-bar { text-align: center; font-size: 0.9em; color: #7f8c8d; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .sync-dot { height: 10px; width: 10px; background-color: #bbb; border-radius: 50%; display: inline-block; }
+        .sync-dot.online { background-color: #27ae60; box-shadow: 0 0 5px #27ae60; }
+        .sync-dot.offline { background-color: #e74c3c; }
+        
+        .tabs { display: flex; overflow-x: auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 15px; padding: 5px; }
+        .tab-btn { flex: 1; padding: 12px 5px; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--tab-inactive); white-space: nowrap; border-bottom: 3px solid transparent; transition: all 0.3s; }
+        .tab-btn.active { color: var(--tab-active); border-bottom: 3px solid var(--accent); }
+        
+        .card { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        .btn-row { display: flex; gap: 10px; }
+        button { background-color: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: 600; transition: opacity 0.2s; }
+        button.secondary { background-color: #95a5a6; }
+        button.accent { background-color: var(--accent); }
+        button.search-btn { background-color: #3498db; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        #camera-container { position: relative; width: 100%; height: 250px; background: #000; display: none; margin-top: 10px; border-radius: 4px; overflow: hidden; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        #scan-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; height: 2px; background: red; box-shadow: 0 0 4px red; }
+        
+        .search-bar-container { margin-bottom: 15px; }
+        .item-list { list-style: none; padding: 0; }
+        .item-card { background: white; border-left: 6px solid var(--primary); padding: 15px; margin-bottom: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .item-info { flex: 1; }
+        .item-info h3 { margin: 0 0 5px 0; font-size: 1.1em; color: #2c3e50; }
+        .item-info p { margin: 0; font-size: 0.9em; color: #666; }
+        .meta-info { font-size: 0.8em; color: #999; margin-top: 4px; }
+        .tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; background: #eee; margin-right: 5px; font-weight: bold; text-transform: uppercase; }
+        .delete-btn { background: #e74c3c; width: auto; padding: 8px 12px; font-size: 0.85em; margin-left: 10px; }
+        .status-msg { text-align: center; margin-top: 8px; font-style: italic; font-size: 0.9em; min-height: 20px; }
+        .error-msg { color: #e74c3c; }
+        .success-msg { color: #27ae60; }
+        .loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:999; display:flex; justify-content:center; align-items:center; font-size:1.2em; font-weight:bold; color:var(--primary); }
+    </style>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div id="loading" class="loading-overlay">Connexion au cloud éthique...</div>
+
+<div class="container">
+    <h1>📚 Ma Collection Éthique</h1>
+    <div class="status-bar">
+        <span id="sync-dot" class="sync-dot"></span>
+        <span id="sync-status">Connexion...</span>
+    </div>
+
+    <!-- Formulaire -->
+    <div class="card">
+        <h2 style="margin-top:0; font-size:1.2rem;">Ajouter un élément</h2>
+        <div class="form-group">
+            <label>Catégorie</label>
+            <select id="category">
+                <option value="Livre">Livre</option>
+                <option value="JdR">Jeu de Rôle</option>
+                <option value="Jeu de Société">Jeu de Société</option>
+                <option value="Vinyle">Vinyle</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>ISBN / Code-barre</label>
+            <div class="btn-row">
+                <input type="text" id="isbn" placeholder="Ex: 9782070543205" inputmode="numeric">
+                <button type="button" class="secondary" style="width: auto;" onclick="toggleCamera()">📷</button>
+            </div>
+            <div id="camera-container"><video id="video"></video><div id="scan-overlay"></div></div>
+            <button type="button" class="search-btn" onclick="fetchInfoByISBN()" style="margin-top: 5px; width:100%;">🔍 Chercher par ISBN</button>
+        </div>
+        <div class="form-group">
+            <label>OU Rechercher par Titre</label>
+            <div class="btn-row">
+                <input type="text" id="searchTitleInput" placeholder="Titre ou mot-clé...">
+                <button type="button" class="search-btn" style="width: auto;" onclick="fetchInfoByTitle()">Go</button>
+            </div>
+            <div id="fetch-status" class="status-msg"></div>
+        </div>
+        <div class="form-group"><label>Titre *</label><input type="text" id="title" placeholder="Titre de l'ouvrage"></div>
+        <div class="form-group"><label>Auteur / Artiste</label><input type="text" id="author" placeholder="Nom"></div>
+        <div class="form-group"><label>Année</label><input type="number" id="year" placeholder="2023"></div>
+        <button class="accent" id="btn-add" onclick="addItem()">Ajouter à la collection</button>
+    </div>
+
+    <!-- Onglets -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="filterCollection('All', this)">Tous</button>
+        <button class="tab-btn" onclick="filterCollection('Livre', this)">Livres</button>
+        <button class="tab-btn" onclick="filterCollection('JdR', this)">JdR</button>
+        <button class="tab-btn" onclick="filterCollection('Jeu de Société', this)">Jeux</button>
+        <button class="tab-btn" onclick="filterCollection('Vinyle', this)">Vinyles</button>
+    </div>
+
+    <div class="card">
+        <div class="search-bar-container">
+            <input type="text" id="internalSearch" placeholder="🔍 Rechercher dans ma collection..." onkeyup="renderList()">
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-weight:bold; color:#7f8c8d;">Éléments : <span id="count">0</span></span>
+            <button class="secondary" style="width: auto; font-size: 0.8em; padding: 5px 10px;" onclick="exportCSV()">📥 CSV</button>
+        </div>
+        <ul id="collection-list" class="item-list"></ul>
+        <button class="secondary" onclick="clearAll()" style="background-color: #e74c3c; margin-top: 20px; width:100%;">⚠️ Tout effacer</button>
+    </div>
+</div>
+
+<script>
+    // ---------------------------------------------------------
+    // CONFIGURATION SUPABASE (À REMPLACER)
+    // ---------------------------------------------------------
+    const SUPABASE_URL = 'https://xknjgdtnzxvbzavzksgr.supabase.co/rest/v1/'; // Ex: https://xyz...supabase.co
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbmpnZHRuenh2Ynphdnprc2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MjU1MjIsImV4cCI6MjEwNDUwMTUyMn0.a5fOexL2fXWUmBmQO2k3KfnyNnC313rtmM9xlwo2azA';     // Ex: eyJhbG...
+    // ---------------------------------------------------------
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let localCollection = [];
+    let html5QrcodeScanner = null;
+    let currentFilter = 'All';
+    let isOnline = false;
+
+    const connectedDot = document.getElementById('sync-dot');
+    const connectedStatus = document.getElementById('sync-status');
+    const loadingScreen = document.getElementById('loading');
+    const btnAdd = document.getElementById('btn-add');
+
+    // Vérification de connexion simple
+    async function checkConnection() {
+        try {
+            const { data, error } = await supabase.from('collection').select('count', { count: 'exact', head: true });
+            if (error) throw error;
+            isOnline = true;
+            connectedDot.classList.remove('offline');
+            connectedDot.classList.add('online');
+            connectedStatus.textContent = "En ligne - Serveur Europe";
+            loadingScreen.style.display = 'none';
+            btnAdd.disabled = false;
+            loadCollection(); // Charger les données
+        } catch (err) {
+            console.error(err);
+            isOnline = false;
+            connectedDot.classList.remove('online');
+            connectedDot.classList.add('offline');
+            connectedStatus.textContent = "Hors ligne ou erreur de config";
+            loadingScreen.style.display = 'none';
+            btnAdd.disabled = true;
+            alert("Erreur de connexion à Supabase. Vérifiez vos clés API et la table 'collection'.");
+        }
+    }
+
+    // Chargement initial
+    async function loadCollection() {
+        const { data, error } = await supabase
+            .from('collection')
+            .select('*')
+            .order('dateAdded', { ascending: false });
+
+        if (error) {
+            console.error("Erreur chargement:", error);
+            return;
+        }
+        localCollection = data || [];
+        renderList();
+
+        // Écouteur temps réel (Supabase Realtime)
+        supabase
+            .channel('collection_changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'collection' }, () => {
+                // Recharger tout en cas de changement (simple et efficace pour petit volume)
+                loadCollection();
+            })
+            .subscribe();
+    }
+
+    function filterCollection(category, btnElement) {
+        currentFilter = category;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        if(btnElement) btnElement.classList.add('active');
+        renderList();
+    }
+
+    function renderList() {
+        const list = document.getElementById('collection-list');
+        const countSpan = document.getElementById('count');
+        const searchQuery = document.getElementById('internalSearch').value.toLowerCase();
+        
+        list.innerHTML = '';
+        
+        const filtered = localCollection.filter(item => {
+            const matchCategory = currentFilter === 'All' || item.category === currentFilter;
+            const matchSearch = 
+                item.title.toLowerCase().includes(searchQuery) || 
+                (item.author && item.author.toLowerCase().includes(searchQuery)) ||
+                (item.isbn && item.isbn.includes(searchQuery));
+            return matchCategory && matchSearch;
+        });
+
+        countSpan.textContent = filtered.length;
+
+        if (filtered.length === 0) {
+            list.innerHTML = '<li style="text-align:center; color:#999; padding:20px;">Aucun élément trouvé.</li>';
+            return;
+        }
+
+        filtered.forEach((item) => {
+            const li = document.createElement('li');
+            li.className = 'item-card';
+            li.style.borderLeftColor = getCategoryColor(item.category);
+            li.innerHTML = `
+                <div class="item-info">
+                    <h3>${item.title} <span class="tag" style="background:${getCategoryColor(item.category)}20; color:${getCategoryColor(item.category)}">${item.category}</span></h3>
+                    <p>${item.author || 'Inconnu'} ${item.year ? '('+item.year+')' : ''}</p>
+                    ${item.isbn ? `<div class="meta-info">ISBN: ${item.isbn}</div>` : ''}
+                </div>
+                <button class="delete-btn" onclick="deleteItem(${item.id})">Supprimer</button>
+            `;
+            list.appendChild(li);
+        });
+    }
+
+    function getCategoryColor(cat) {
+        switch(cat) {
+            case 'Livre': return '#3498db';
+            case 'JdR': return '#9b59b6';
+            case 'Jeu de Société': return '#e67e22';
+            case 'Vinyle': return '#e74c3c';
+            default: return '#2c3e50';
+        }
+    }
+
+    async function addItem() {
+        if (!isOnline) { alert("Hors ligne."); return; }
+
+        const title = document.getElementById('title').value.trim();
+        const author = document.getElementById('author').value.trim();
+        const year = document.getElementById('year').value.trim();
+        const category = document.getElementById('category').value;
+        const isbn = document.getElementById('isbn').value.trim();
+        const statusDiv = document.getElementById('fetch-status');
+
+        if (!title) { alert('Le titre est obligatoire !'); return; }
+
+        // Vérification doublons locale
+        const isDuplicate = localCollection.some(item => {
+            if (isbn && item.isbn === isbn) return true;
+            if (!isbn && !item.isbn && item.title.toLowerCase() === title.toLowerCase() && item.category === category) return true;
+            return false;
+        });
+
+        if (isDuplicate) {
+            statusDiv.textContent = "⚠️ Déjà existant.";
+            statusDiv.className = "status-msg error-msg";
+            return;
+        }
+
+        btnAdd.disabled = true;
+        btnAdd.textContent = "Ajout...";
+
+        const { error } = await supabase
+            .from('collection')
+            .insert([{ 
+                title, author, year, category, isbn, 
+                dateAdded: new Date().toISOString() 
+            }]);
+
+        if (error) {
+            alert("Erreur: " + error.message);
+            btnAdd.disabled = false;
+            btnAdd.textContent = "Ajouter à la collection";
+        } else {
+            // Le realtime va recharger la liste automatiquement
+            document.getElementById('title').value = '';
+            document.getElementById('author').value = '';
+            document.getElementById('year').value = '';
+            document.getElementById('isbn').value = '';
+            document.getElementById('searchTitleInput').value = '';
+            statusDiv.textContent = "Ajouté !";
+            statusDiv.className = "status-msg success-msg";
+            setTimeout(() => { 
+                statusDiv.textContent = ""; 
+                filterCollection(category, document.querySelector(`button[onclick="filterCollection('${category}', this)"]`));
+            }, 2000);
+            btnAdd.disabled = false;
+            btnAdd.textContent = "Ajouter à la collection";
+        }
+    }
+
+    async function deleteItem(id) {
+        if (!isOnline) { alert("Hors ligne."); return; }
+        if(confirm('Supprimer cet élément ?')) {
+            const { error } = await supabase.from('collection').delete().eq('id', id);
+            if (error) alert("Erreur suppression: " + error.message);
+        }
+    }
+
+    async function clearAll() {
+        if (!isOnline) { alert("Hors ligne."); return; }
+        if(localCollection.length === 0) return;
+        if(confirm('SUPPRIMER TOUTE LA COLLECTION ?')) {
+            const { error } = await supabase.from('collection').delete().neq('id', 0); // Delete all
+            if (error) alert("Erreur: " + error.message);
+        }
+    }
+
+    // --- RECHERCHE API & CAMÉRA (Identiques) ---
+    async function fetchInfoByISBN() {
+        const isbn = document.getElementById('isbn').value.trim();
+        const statusDiv = document.getElementById('fetch-status');
+        if (!isbn) { statusDiv.textContent = "ISBN requis."; statusDiv.className = "status-msg error-msg"; return; }
+        statusDiv.textContent = "Recherche..."; statusDiv.className = "status-msg";
+        await performSearch(`https://openlibrary.org/isbn/${isbn}.json`, statusDiv);
+    }
+
+    async function fetchInfoByTitle() {
+        const query = document.getElementById('searchTitleInput').value.trim();
+        const statusDiv = document.getElementById('fetch-status');
+        if (!query) { statusDiv.textContent = "Titre requis."; statusDiv.className = "status-msg error-msg"; return; }
+        statusDiv.textContent = "Recherche..."; statusDiv.className = "status-msg";
+        const url = `https://openlibrary.org/search.json?title=${encodeURIComponent(query)}&limit=1`;
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.numFound > 0 && data.docs.length > 0) {
+                const book = data.docs[0];
+                fillForm({
+                    title: book.title,
+                    author: book.author_name ? book.author_name[0] : '',
+                    first_publish_date: book.first_publish_date ? book.first_publish_date.substring(0, 4) : '',
+                    isbn: book.isbn ? book.isbn[0] : ''
+                });
+                statusDiv.textContent = "Trouvé !"; statusDiv.className = "status-msg success-msg";
+            } else { throw new Error('Non trouvé'); }
+        } catch (error) {
+            statusDiv.textContent = "Aucun résultat."; statusDiv.className = "status-msg error-msg";
+        }
+    }
+
+    async function performSearch(url, statusDiv) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Non trouvé');
+            const data = await response.json();
+            if (data.title) {
+                fillForm(data);
+                statusDiv.textContent = "Trouvé !"; statusDiv.className = "status-msg success-msg";
+            } else { throw new Error('Incomplet'); }
+        } catch (error) {
+            statusDiv.textContent = "Non trouvé. Saisie manuelle."; statusDiv.className = "status-msg error-msg";
+        }
+    }
+
+    function fillForm(data) {
+        document.getElementById('title').value = data.title || '';
+        document.getElementById('year').value = data.first_publish_date || '';
+        if (data.authors) {
+            if (Array.isArray(data.authors)) {
+                if (typeof data.authors[0] === 'string') document.getElementById('author').value = data.authors[0];
+                else if (data.authors[0].name) document.getElementById('author').value = data.authors[0].name;
+            }
+        }
+        if (data.author && !document.getElementById('author').value) document.getElementById('author').value = data.author;
+        if (data.isbn && !document.getElementById('isbn').value) {
+            const cleanIsbn = Array.isArray(data.isbn) ? data.isbn[0] : data.isbn;
+            document.getElementById('isbn').value = cleanIsbn ? cleanIsbn.replace(/[^0-9]/g, '') : '';
+        }
+    }
+
+    function toggleCamera() {
+        const container = document.getElementById('camera-container');
+        if (container.style.display === 'block') {
+            if (html5QrcodeScanner) { html5QrcodeScanner.stop().then(() => { html5QrcodeScanner.clear(); html5QrcodeScanner = null; }); }
+            container.style.display = 'none';
+        } else {
+            container.style.display = 'block';
+            const html5QrCode = new Html5Qrcode("camera-container");
+            html5QrcodeScanner = html5QrCode;
+            html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess)
+            .catch(err => { alert("Caméra inaccessible (HTTPS requis)."); container.style.display = 'none'; });
+        }
+    }
+
+    function onScanSuccess(decodedText) {
+        if (html5QrcodeScanner) { html5QrcodeScanner.stop().then(() => { html5QrcodeScanner.clear(); html5QrcodeScanner = null; document.getElementById('camera-container').style.display = 'none'; }); }
+        document.getElementById('isbn').value = decodedText.replace(/[^0-9]/g, '');
+        const statusDiv = document.getElementById('fetch-status');
+        statusDiv.textContent = "Scan réussi, recherche..."; statusDiv.className = "status-msg success-msg";
+        fetchInfoByISBN();
+    }
+
+    function exportCSV() {
+        if (localCollection.length === 0) { alert("Rien à exporter"); return; }
+        let csvContent = "data:text/csv;charset=utf-8,Titre,Auteur,Annee,Categorie,ISBN\n";
+        localCollection.forEach(item => {
+            csvContent += `"${item.title.replace(/"/g, '""')}","${(item.author||'').replace(/"/g, '""')}","${item.year}","${item.category}","${item.isbn}"\n`;
+        });
+        const link = document.createElement("a");
+        link.setAttribute("href", encodeURI(csvContent));
+        link.setAttribute("download", "ma_collection_ethique.csv");
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+
+    // Démarrage
+    checkConnection();
+</script>
+</body>
+</html>
