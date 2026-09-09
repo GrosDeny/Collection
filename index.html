@@ -125,11 +125,11 @@
     // ---------------------------------------------------------
     // CONFIGURATION SUPABASE (À REMPLACER)
     // ---------------------------------------------------------
-    const SUPABASE_URL = 'https://xknjgdtnzxvbzavzksgr.supabase.co'; // Ex: https://xyz...supabase.co
+    const SUPABASE_URL = 'https://xknjgdtnzxvbzavzksgr.mySupabase.co'; // Ex: https://xyz...mySupabase.co
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbmpnZHRuenh2Ynphdnprc2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MjU1MjIsImV4cCI6MjEwNDUwMTUyMn0.a5fOexL2fXWUmBmQO2k3KfnyNnC313rtmM9xlwo2azA';     // Ex: eyJhbG...
     // ---------------------------------------------------------
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const mySupabase = window.mySupabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let localCollection = [];
     let html5QrcodeScanner = null;
@@ -144,7 +144,7 @@
     // Vérification de connexion simple
     async function checkConnection() {
         try {
-            const { data, error } = await supabase.from('collection').select('count', { count: 'exact', head: true });
+            const { data, error } = await mySupabase.from('collection').select('count', { count: 'exact', head: true });
             if (error) throw error;
             isOnline = true;
             connectedDot.classList.remove('offline');
@@ -161,7 +161,7 @@
             connectedStatus.textContent = "Hors ligne ou erreur de config";
             loadingScreen.style.display = 'none';
             btnAdd.disabled = true;
-            alert("Erreur de connexion à Supabase. Vérifiez vos clés API et la table 'collection'.");
+            alert("Erreur de connexion à mySupabase. Vérifiez vos clés API et la table 'collection'.");
         }
     }
 
