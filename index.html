@@ -14,23 +14,12 @@
         .sync-dot.online { background-color: #27ae60; box-shadow: 0 0 5px #27ae60; }
         .sync-dot.offline { background-color: #e74c3c; }
         
-        /* Styles pour l'écran de connexion */
-        #auth-container {
-            max-width: 400px;
-            margin: 50px auto;
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            text-align: center;
-        }
+        #auth-container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
         #auth-container h2 { margin-top: 0; color: var(--primary); }
         .auth-input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
         .auth-notice { color: #7f8c8d; font-size: 0.85em; margin-top: 15px; background: #f9f9f9; padding: 10px; border-radius: 4px; }
         
-        /* Cacher l'appli par défaut */
         #app-content { display: none; }
-
         .tabs { display: flex; overflow-x: auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 15px; padding: 5px; }
         .tab-btn { flex: 1; padding: 12px 5px; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--tab-inactive); white-space: nowrap; border-bottom: 3px solid transparent; transition: all 0.3s; }
         .tab-btn.active { color: var(--tab-active); border-bottom: 3px solid var(--accent); }
@@ -67,27 +56,20 @@
         .warning-msg { color: #d35400; font-weight: bold; }
     </style>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-<!-- ÉCRAN DE CONNEXION -->
 <div id="auth-container">
     <h2>Connexion Sécurisée</h2>
     <p style="font-size:0.9em; color:#666; margin-bottom:20px;">Accès réservé à l'administrateur</p>
-    
     <input type="email" id="auth-email" class="auth-input" placeholder="Votre email">
     <input type="password" id="auth-password" class="auth-input" placeholder="Votre mot de passe">
     <button class="accent" style="width:100%" onclick="handleLogin()" id="auth-btn">Se connecter</button>
     <div id="auth-error" class="status-msg error-msg"></div>
-    
-    <div class="auth-notice">
-        🔒 L'inscription de nouveaux comptes est désactivée.<br>Seul le compte administrateur existant peut se connecter.
-    </div>
+    <div class="auth-notice">🔒 L'inscription de nouveaux comptes est désactivée.</div>
 </div>
 
-<!-- APPLICATION PRINCIPALE (Cachée si non connecté) -->
 <div id="app-content">
     <div class="container">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -101,7 +83,6 @@
             <span id="user-email" style="margin-left:10px; font-weight:bold; color:var(--primary);"></span>
         </div>
 
-        <!-- Formulaire -->
         <div class="card">
             <h2 style="margin-top:0; font-size:1.2rem;">Ajouter un élément</h2>
             <div class="form-group">
@@ -120,7 +101,7 @@
                     <button type="button" class="secondary" style="width: auto;" onclick="toggleCamera()">📷</button>
                 </div>
                 <div id="camera-container"><video id="video"></video><div id="scan-overlay"></div></div>
-                <button type="button" class="search-btn" onclick="fetchInfoByISBN()" style="margin-top: 5px; width:100%;">🔍 Chercher par ISBN</button>
+                <button type="button" class="search-btn" onclick="fetchInfoByISBN()" style="margin-top: 5px; width:100%;">🔍 Chercher par ISBN (BnF)</button>
             </div>
             <div class="form-group">
                 <label>OU Rechercher par Titre</label>
@@ -136,7 +117,6 @@
             <button class="accent" id="btn-add" onclick="addItem()">Ajouter à la collection</button>
         </div>
 
-        <!-- Onglets -->
         <div class="tabs">
             <button class="tab-btn active" onclick="filterCollection('All', this)">Tous</button>
             <button class="tab-btn" onclick="filterCollection('Livre', this)">Livres</button>
@@ -160,152 +140,65 @@
 </div>
 
 <script>
-    // ---------------------------------------------------------
-    // CONFIGURATION SUPABASE
-    // ---------------------------------------------------------
     const SUPABASE_URL = 'https://xknjgdtnzxvbzavzksgr.supabase.co'; 
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbmpnZHRuenh2Ynphdnprc2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MjU1MjIsImV4cCI6MjEwNDUwMTUyMn0.a5fOexL2fXWUmBmQO2k3KfnyNnC313rtmM9xlwo2azA';
-    // ---------------------------------------------------------
-
     const mySupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Variables d'état
     let localCollection = [];
     let html5QrcodeScanner = null;
     let currentFilter = 'All';
     let isOnline = false;
 
-    // Éléments DOM Auth
     const authContainer = document.getElementById('auth-container');
     const appContent = document.getElementById('app-content');
     const authBtn = document.getElementById('auth-btn');
     const authError = document.getElementById('auth-error');
     const userEmailSpan = document.getElementById('user-email');
 
-    // Vérifier si déjà connecté au chargement
     window.addEventListener('DOMContentLoaded', async () => {
         const { data: { session } } = await mySupabase.auth.getSession();
-        
-        if (session) {
-            showApp(session.user.email);
-            checkConnection();
-        } else {
-            showAuth();
-        }
+        if (session) { showApp(session.user.email); checkConnection(); } 
+        else { showAuth(); }
         
         mySupabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_IN' && session) {
-                showApp(session.user.email);
-                checkConnection();
-            } else if (event === 'SIGNED_OUT') {
-                showAuth();
-                isOnline = false;
-                updateSyncStatus(false);
-            }
+            if (event === 'SIGNED_IN' && session) { showApp(session.user.email); checkConnection(); } 
+            else if (event === 'SIGNED_OUT') { showAuth(); isOnline = false; updateSyncStatus(false); }
         });
     });
 
-    function showAuth() {
-        authContainer.style.display = 'block';
-        appContent.style.display = 'none';
-        authError.textContent = '';
-    }
+    function showAuth() { authContainer.style.display = 'block'; appContent.style.display = 'none'; authError.textContent = ''; }
+    function showApp(email) { authContainer.style.display = 'none'; appContent.style.display = 'block'; userEmailSpan.textContent = email; }
 
-    function showApp(email) {
-        authContainer.style.display = 'none';
-        appContent.style.display = 'block';
-        userEmailSpan.textContent = email;
-    }
-
-    // Fonction de connexion UNIQUEMENT (plus d'inscription)
     async function handleLogin() {
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value.trim();
-        authError.textContent = '';
-        authBtn.disabled = true;
-        authBtn.textContent = "Connexion...";
-
-        if (!email || !password) {
-            authError.textContent = "Email et mot de passe requis.";
-            authBtn.disabled = false;
-            authBtn.textContent = 'Se connecter';
-            return;
-        }
-
+        authError.textContent = ''; authBtn.disabled = true; authBtn.textContent = "Connexion...";
+        if (!email || !password) { authError.textContent = "Email et mot de passe requis."; authBtn.disabled = false; authBtn.textContent = 'Se connecter'; return; }
         const { error } = await mySupabase.auth.signInWithPassword({ email, password });
-        
-        if (error) {
-            // Message générique pour ne pas dire si l'email existe ou non
-            authError.textContent = "Échec de la connexion. Vérifiez vos identifiants.";
-            authBtn.disabled = false;
-            authBtn.textContent = 'Se connecter';
-        }
-        // Si succès, le listener onAuthStateChange gérera l'affichage
+        if (error) { authError.textContent = "Échec de la connexion. Vérifiez vos identifiants."; authBtn.disabled = false; authBtn.textContent = 'Se connecter'; }
     }
 
-    async function handleLogout() {
-        await mySupabase.auth.signOut();
-        localCollection = [];
-        renderList();
-        showAuth();
-    }
-
-    // --- LOGIQUE MÉTIER ---
-
-    function clearStatus() {
-        document.getElementById('fetch-status').textContent = '';
-    }
-
+    async function handleLogout() { await mySupabase.auth.signOut(); localCollection = []; renderList(); showAuth(); }
+    function clearStatus() { document.getElementById('fetch-status').textContent = ''; }
     function updateSyncStatus(online) {
-        const connectedDot = document.getElementById('sync-dot');
-        const connectedStatus = document.getElementById('sync-status');
-        if (online) {
-            connectedDot.classList.remove('offline');
-            connectedDot.classList.add('online');
-            connectedStatus.textContent = "En ligne - Serveur Europe";
-        } else {
-            connectedDot.classList.remove('online');
-            connectedDot.classList.add('offline');
-            connectedStatus.textContent = "Hors ligne";
-        }
+        const dot = document.getElementById('sync-dot'); const status = document.getElementById('sync-status');
+        if (online) { dot.classList.remove('offline'); dot.classList.add('online'); status.textContent = "En ligne - Serveur Europe"; }
+        else { dot.classList.remove('online'); dot.classList.add('offline'); status.textContent = "Hors ligne"; }
     }
 
     async function checkConnection() {
         try {
-            const { data, error } = await mySupabase.from('collection').select('count', { count: 'exact', head: true });
+            const { error } = await mySupabase.from('collection').select('count', { count: 'exact', head: true });
             if (error) throw error;
-            isOnline = true;
-            updateSyncStatus(true);
-            document.getElementById('btn-add').disabled = false;
-            loadCollection();
-        } catch (err) {
-            console.error(err);
-            isOnline = false;
-            updateSyncStatus(false);
-            document.getElementById('btn-add').disabled = true;
-            alert("Erreur de connexion à la base de données.");
-        }
+            isOnline = true; updateSyncStatus(true); document.getElementById('btn-add').disabled = false; loadCollection();
+        } catch (err) { console.error(err); isOnline = false; updateSyncStatus(false); document.getElementById('btn-add').disabled = true; alert("Erreur de connexion BDD."); }
     }
 
     async function loadCollection() {
-        const { data, error } = await mySupabase
-            .from('collection')
-            .select('*')
-            .order('dateAdded', { ascending: false });
-
-        if (error) {
-            console.error("Erreur chargement:", error);
-            return;
-        }
-        localCollection = data || [];
-        renderList();
-
-        mySupabase
-            .channel('collection_changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'collection' }, () => {
-                loadCollection();
-            })
-            .subscribe();
+        const { data, error } = await mySupabase.from('collection').select('*').order('dateAdded', { ascending: false });
+        if (error) { console.error("Erreur chargement:", error); return; }
+        localCollection = data || []; renderList();
+        mySupabase.channel('collection_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'collection' }, () => { loadCollection(); }).subscribe();
     }
 
     function filterCollection(category, btnElement) {
@@ -319,125 +212,56 @@
         const list = document.getElementById('collection-list');
         const countSpan = document.getElementById('count');
         const searchQuery = document.getElementById('internalSearch').value.toLowerCase();
-        
         list.innerHTML = '';
-        
         const filtered = localCollection.filter(item => {
             const matchCategory = currentFilter === 'All' || item.category === currentFilter;
-            const matchSearch = 
-                item.title.toLowerCase().includes(searchQuery) || 
-                (item.author && item.author.toLowerCase().includes(searchQuery)) ||
-                (item.isbn && item.isbn.includes(searchQuery));
+            const matchSearch = item.title.toLowerCase().includes(searchQuery) || (item.author && item.author.toLowerCase().includes(searchQuery)) || (item.isbn && item.isbn.includes(searchQuery));
             return matchCategory && matchSearch;
         });
-
         countSpan.textContent = filtered.length;
-
-        if (filtered.length === 0) {
-            list.innerHTML = '<li style="text-align:center; color:#999; padding:20px;">Aucun élément trouvé.</li>';
-            return;
-        }
-
+        if (filtered.length === 0) { list.innerHTML = '<li style="text-align:center; color:#999; padding:20px;">Aucun élément trouvé.</li>'; return; }
         filtered.forEach((item) => {
-            const li = document.createElement('li');
-            li.className = 'item-card';
-            li.style.borderLeftColor = getCategoryColor(item.category);
-            li.innerHTML = `
-                <div class="item-info">
-                    <h3>${item.title} <span class="tag" style="background:${getCategoryColor(item.category)}20; color:${getCategoryColor(item.category)}">${item.category}</span></h3>
-                    <p>${item.author || 'Inconnu'} ${item.year ? '('+item.year+')' : ''}</p>
-                    ${item.isbn ? `<div class="meta-info">ISBN: ${item.isbn}</div>` : ''}
-                </div>
-                <button class="delete-btn" onclick="deleteItem(${item.id})">Supprimer</button>
-            `;
+            const li = document.createElement('li'); li.className = 'item-card'; li.style.borderLeftColor = getCategoryColor(item.category);
+            li.innerHTML = `<div class="item-info"><h3>${item.title} <span class="tag" style="background:${getCategoryColor(item.category)}20; color:${getCategoryColor(item.category)}">${item.category}</span></h3><p>${item.author || 'Inconnu'} ${item.year ? '('+item.year+')' : ''}</p>${item.isbn ? `<div class="meta-info">ISBN: ${item.isbn}</div>` : ''}</div><button class="delete-btn" onclick="deleteItem(${item.id})">Supprimer</button>`;
             list.appendChild(li);
         });
     }
 
     function getCategoryColor(cat) {
-        switch(cat) {
-            case 'Livre': return '#3498db';
-            case 'JdR': return '#9b59b6';
-            case 'Jeu de Société': return '#e67e22';
-            case 'Vinyle': return '#e74c3c';
-            default: return '#2c3e50';
-        }
+        switch(cat) { case 'Livre': return '#3498db'; case 'JdR': return '#9b59b6'; case 'Jeu de Société': return '#e67e22'; case 'Vinyle': return '#e74c3c'; default: return '#2c3e50'; }
     }
 
     async function addItem() {
         if (!isOnline) { alert("Hors ligne."); return; }
-
         const title = document.getElementById('title').value.trim();
         const author = document.getElementById('author').value.trim();
         const year = document.getElementById('year').value.trim();
         const category = document.getElementById('category').value;
         const isbn = document.getElementById('isbn').value.trim();
         const statusDiv = document.getElementById('fetch-status');
-
         if (!title) { alert('Le titre est obligatoire !'); return; }
-
         const isDuplicate = localCollection.some(item => {
             if (isbn && item.isbn === isbn) return true;
             if (!isbn && !item.isbn && item.title.toLowerCase() === title.toLowerCase() && item.category === category) return true;
             return false;
         });
-
-        if (isDuplicate) {
-            statusDiv.textContent = "⚠️ Déjà existant.";
-            statusDiv.className = "status-msg error-msg";
-            return;
-        }
-
-        const btnAdd = document.getElementById('btn-add');
-        btnAdd.disabled = true;
-        btnAdd.textContent = "Ajout...";
-
-        const { error } = await mySupabase
-            .from('collection')
-            .insert([{ 
-                title, author, year, category, isbn, 
-                dateAdded: new Date().toISOString() 
-            }]);
-
-        if (error) {
-            alert("Erreur: " + error.message);
-            btnAdd.disabled = false;
-            btnAdd.textContent = "Ajouter à la collection";
-        } else {
-            document.getElementById('title').value = '';
-            document.getElementById('author').value = '';
-            document.getElementById('year').value = '';
-            document.getElementById('isbn').value = '';
-            document.getElementById('searchTitleInput').value = '';
-            statusDiv.textContent = "Ajouté !";
-            statusDiv.className = "status-msg success-msg";
-            setTimeout(() => { 
-                statusDiv.textContent = ""; 
-                filterCollection(category, document.querySelector(`button[onclick="filterCollection('${category}', this)"]`));
-            }, 2000);
-            btnAdd.disabled = false;
-            btnAdd.textContent = "Ajouter à la collection";
+        if (isDuplicate) { statusDiv.textContent = "⚠️ Déjà existant."; statusDiv.className = "status-msg error-msg"; return; }
+        const btnAdd = document.getElementById('btn-add'); btnAdd.disabled = true; btnAdd.textContent = "Ajout...";
+        const { error } = await mySupabase.from('collection').insert([{ title, author, year, category, isbn, dateAdded: new Date().toISOString() }]);
+        if (error) { alert("Erreur: " + error.message); btnAdd.disabled = false; btnAdd.textContent = "Ajouter à la collection"; } 
+        else {
+            document.getElementById('title').value = ''; document.getElementById('author').value = ''; document.getElementById('year').value = ''; document.getElementById('isbn').value = ''; document.getElementById('searchTitleInput').value = '';
+            statusDiv.textContent = "Ajouté !"; statusDiv.className = "status-msg success-msg";
+            setTimeout(() => { statusDiv.textContent = ""; filterCollection(category, document.querySelector(`button[onclick="filterCollection('${category}', this)"]`)); }, 2000);
+            btnAdd.disabled = false; btnAdd.textContent = "Ajouter à la collection";
         }
     }
 
-    async function deleteItem(id) {
-        if (!isOnline) { alert("Hors ligne."); return; }
-        if(confirm('Supprimer cet élément ?')) {
-            const { error } = await mySupabase.from('collection').delete().eq('id', id);
-            if (error) alert("Erreur suppression: " + error.message);
-        }
-    }
+    async function deleteItem(id) { if (!isOnline) { alert("Hors ligne."); return; } if(confirm('Supprimer cet élément ?')) { const { error } = await mySupabase.from('collection').delete().eq('id', id); if (error) alert("Erreur suppression: " + error.message); } }
+    async function clearAll() { if (!isOnline) { alert("Hors ligne."); return; } if(localCollection.length === 0) return; if(confirm('SUPPRIMER TOUTE LA COLLECTION ?')) { const { error } = await mySupabase.from('collection').delete().neq('id', 0); if (error) alert("Erreur: " + error.message); } }
 
-    async function clearAll() {
-        if (!isOnline) { alert("Hors ligne."); return; }
-        if(localCollection.length === 0) return;
-        if(confirm('SUPPRIMER TOUTE LA COLLECTION ?')) {
-            const { error } = await mySupabase.from('collection').delete().neq('id', 0);
-            if (error) alert("Erreur: " + error.message);
-        }
-    }
-
-    // --- RECHERCHE GOOGLE BOOKS ---
+    // --- RECHERCHE BNF (Bibliothèque Nationale de France) ---
+    // API plus fiable pour les livres français et ISBN européens
 
     async function fetchInfoByISBN() {
         const isbn = document.getElementById('isbn').value.trim();
@@ -445,21 +269,28 @@
         const category = document.getElementById('category').value;
         
         if (!isbn) { statusDiv.textContent = "ISBN requis."; statusDiv.className = "status-msg error-msg"; return; }
-        if (category !== 'Livre') {
-            statusDiv.textContent = "Note: Google Books est optimisé pour les Livres.";
-            statusDiv.className = "status-msg warning-msg";
-        }
-        statusDiv.textContent = "Recherche..."; statusDiv.className = "status-msg";
+        if (category !== 'Livre') { statusDiv.textContent = "Note: La BnF est optimisée pour les Livres."; statusDiv.className = "status-msg warning-msg"; }
+        
+        statusDiv.textContent = "Recherche BnF en cours..."; statusDiv.className = "status-msg";
         
         try {
-            const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+            // Nettoyage ISBN (garder seulement les chiffres)
+            const cleanIsbn = isbn.replace(/[^0-9]/g, '');
+            // Appel API BnF
+            const response = await fetch(`https://catalogue.bnf.fr/api/search?query=isbn:${cleanIsbn}&format=json&maxResults=1`);
+            if (!response.ok) throw new Error('Erreur réseau');
             const data = await response.json();
-            if (data.totalItems > 0 && data.items.length > 0) {
-                fillFormGoogle(data.items[0].volumeInfo);
-                statusDiv.textContent = "Trouvé !"; statusDiv.className = "status-msg success-msg";
-            } else { throw new Error('Non trouvé'); }
+            
+            if (data.totalItems > 0 && data.documents && data.documents.length > 0) {
+                const doc = data.documents[0];
+                fillFormBnf(doc);
+                statusDiv.textContent = "Infos trouvées (BnF) !"; statusDiv.className = "status-msg success-msg";
+            } else {
+                throw new Error('Non trouvé');
+            }
         } catch (error) {
-            statusDiv.textContent = "Non trouvé. Saisie manuelle."; statusDiv.className = "status-msg error-msg";
+            console.error(error);
+            statusDiv.textContent = "Non trouvé dans la BnF. Essayez la saisie manuelle."; statusDiv.className = "status-msg error-msg";
         }
     }
 
@@ -467,39 +298,61 @@
         const query = document.getElementById('searchTitleInput').value.trim();
         const statusDiv = document.getElementById('fetch-status');
         const category = document.getElementById('category').value;
+        
         if (!query) { statusDiv.textContent = "Titre requis."; statusDiv.className = "status-msg error-msg"; return; }
-        if (category !== 'Livre') {
-            statusDiv.textContent = "Note: Google Books est optimisé pour les Livres.";
-            statusDiv.className = "status-msg warning-msg";
-        }
-        statusDiv.textContent = "Recherche..."; statusDiv.className = "status-msg";
+        if (category !== 'Livre') { statusDiv.textContent = "Note: La BnF est optimisée pour les Livres."; statusDiv.className = "status-msg warning-msg"; }
+        
+        statusDiv.textContent = "Recherche BnF..."; statusDiv.className = "status-msg";
         
         try {
-            const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(query)}`);
+            // Recherche par titre dans la BnF
+            const response = await fetch(`https://catalogue.bnf.fr/api/search?query=tous:${encodeURIComponent(query)}&format=json&maxResults=5`);
+            if (!response.ok) throw new Error('Erreur réseau');
             const data = await response.json();
-            if (data.totalItems > 0 && data.items.length > 0) {
-                fillFormGoogle(data.items[0].volumeInfo);
-                statusDiv.textContent = "Trouvé !"; statusDiv.className = "status-msg success-msg";
-            } else { throw new Error('Aucun résultat'); }
+            
+            if (data.totalItems > 0 && data.documents && data.documents.length > 0) {
+                // On prend le premier résultat pertinent
+                const doc = data.documents[0];
+                fillFormBnf(doc);
+                statusDiv.textContent = "Infos trouvées (BnF) !"; statusDiv.className = "status-msg success-msg";
+            } else { 
+                throw new Error('Aucun résultat'); 
+            }
         } catch (error) {
-            statusDiv.textContent = "Aucun résultat. Saisie manuelle."; statusDiv.className = "status-msg error-msg";
+            console.error(error);
+            statusDiv.textContent = "Aucun résultat dans la BnF. Saisie manuelle recommandée."; statusDiv.className = "status-msg error-msg";
         }
     }
 
-    function fillFormGoogle(data) {
-        document.getElementById('title').value = data.title || '';
-        if (data.publishedDate) {
-            const yearMatch = data.publishedDate.match(/^\d{4}/);
-            document.getElementById('year').value = yearMatch ? yearMatch[0] : '';
-        } else { document.getElementById('year').value = ''; }
-        if (data.authors && data.authors.length > 0) {
-            document.getElementById('author').value = data.authors.join(', ');
-        } else { document.getElementById('author').value = ''; }
-        if (data.industryIdentifiers) {
-            const isbn13 = data.industryIdentifiers.find(id => id.type === 'ISBN_13');
-            if (isbn13 && !document.getElementById('isbn').value) {
-                document.getElementById('isbn').value = isbn13.identifier;
-            }
+    function fillFormBnf(doc) {
+        // Titre
+        document.getElementById('title').value = doc.title || (doc.manifestation && doc.manifestation[0] ? doc.manifestation[0].title : '') || '';
+        
+        // Auteur (La BnF met les auteurs dans un tableau "creator" ou "contributor")
+        let authors = [];
+        if (doc.creator) authors = authors.concat(doc.creator);
+        if (doc.contributor) authors = authors.concat(doc.contributor);
+        
+        if (authors.length > 0) {
+            // On nettoie les noms (parfois ils ont des dates de naissance à la fin)
+            const cleanAuthors = authors.map(a => a.replace(/\s*\([^)]*\)\s*$/, '')).slice(0, 3); // Prendre les 3 premiers
+            document.getElementById('author').value = cleanAuthors.join(', ');
+        } else {
+            document.getElementById('author').value = '';
+        }
+        
+        // Année (souvent dans "date" ou "publication")
+        let year = '';
+        if (doc.date) {
+            const match = doc.date.match(/\d{4}/);
+            if (match) year = match[0];
+        }
+        document.getElementById('year').value = year;
+        
+        // ISBN (si recherche par titre, on essaie de le retrouver)
+        if (!document.getElementById('isbn').value && doc.isbn) {
+            const isbnVal = Array.isArray(doc.isbn) ? doc.isbn[0] : doc.isbn;
+            document.getElementById('isbn').value = isbnVal ? isbnVal.replace(/[^0-9]/g, '') : '';
         }
     }
 
