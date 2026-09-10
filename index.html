@@ -46,6 +46,7 @@
         .status-msg { text-align: center; margin-top: 8px; font-style: italic; font-size: 0.9em; min-height: 20px; }
         .error-msg { color: #e74c3c; }
         .success-msg { color: #27ae60; }
+        .warning-msg { color: #d35400; font-weight: bold; }
         .loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:999; display:flex; justify-content:center; align-items:center; font-size:1.2em; font-weight:bold; color:var(--primary); }
     </style>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
@@ -68,7 +69,7 @@
         <h2 style="margin-top:0; font-size:1.2rem;">Ajouter un élément</h2>
         <div class="form-group">
             <label>Catégorie</label>
-            <select id="category">
+            <select id="category" onchange="clearStatus()">
                 <option value="Livre">Livre</option>
                 <option value="JdR">Jeu de Rôle</option>
                 <option value="Jeu de Société">Jeu de Société</option>
@@ -82,7 +83,7 @@
                 <button type="button" class="secondary" style="width: auto;" onclick="toggleCamera()">📷</button>
             </div>
             <div id="camera-container"><video id="video"></video><div id="scan-overlay"></div></div>
-            <button type="button" class="search-btn" onclick="fetchInfoByISBN()" style="margin-top: 5px; width:100%;">🔍 Chercher par ISBN</button>
+            <button type="button" class="search-btn" onclick="fetchInfoByISBN()" style="margin-top: 5px; width:100%;">🔍 Chercher par ISBN (Google Books)</button>
         </div>
         <div class="form-group">
             <label>OU Rechercher par Titre</label>
@@ -124,12 +125,10 @@
     // ---------------------------------------------------------
     // CONFIGURATION SUPABASE
     // ---------------------------------------------------------
-    // Correction 1 : URL correcte (.supabase.co et non .mySupabase.co)
     const SUPABASE_URL = 'https://xknjgdtnzxvbzavzksgr.supabase.co'; 
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbmpnZHRuenh2Ynphdnprc2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MjU1MjIsImV4cCI6MjEwNDUwMTUyMn0.a5fOexL2fXWUmBmQO2k3KfnyNnC313rtmM9xlwo2azA';
     // ---------------------------------------------------------
 
-    // Correction 2 : Utiliser window.supabase (la librairie) pour créer mySupabase (votre variable)
     const mySupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let localCollection = [];
@@ -141,6 +140,10 @@
     const connectedStatus = document.getElementById('sync-status');
     const loadingScreen = document.getElementById('loading');
     const btnAdd = document.getElementById('btn-add');
+
+    function clearStatus() {
+        document.getElementById('fetch-status').textContent = '';
+    }
 
     async function checkConnection() {
         try {
@@ -166,7 +169,6 @@
     }
 
     async function loadCollection() {
-        // Correction 3 : Utiliser mySupabase partout (et non supabase)
         const { data, error } = await mySupabase
             .from('collection')
             .select('*')
@@ -270,7 +272,6 @@
         btnAdd.disabled = true;
         btnAdd.textContent = "Ajout...";
 
-        // Correction 3 : Utiliser mySupabase
         const { error } = await mySupabase
             .from('collection')
             .insert([{ 
@@ -302,7 +303,6 @@
     async function deleteItem(id) {
         if (!isOnline) { alert("Hors ligne."); return; }
         if(confirm('Supprimer cet élément ?')) {
-            // Correction 3 : Utiliser mySupabase
             const { error } = await mySupabase.from('collection').delete().eq('id', id);
             if (error) alert("Erreur suppression: " + error.message);
         }
@@ -312,71 +312,106 @@
         if (!isOnline) { alert("Hors ligne."); return; }
         if(localCollection.length === 0) return;
         if(confirm('SUPPRIMER TOUTE LA COLLECTION ?')) {
-            // Correction 3 : Utiliser mySupabase
             const { error } = await mySupabase.from('collection').delete().neq('id', 0);
             if (error) alert("Erreur: " + error.message);
         }
     }
 
+    // --- RECHERCHE VIA GOOGLE BOOKS (Plus complet) ---
+
     async function fetchInfoByISBN() {
         const isbn = document.getElementById('isbn').value.trim();
         const statusDiv = document.getElementById('fetch-status');
+        const category = document.getElementById('category').value;
+        
         if (!isbn) { statusDiv.textContent = "ISBN requis."; statusDiv.className = "status-msg error-msg"; return; }
-        statusDiv.textContent = "Recherche..."; statusDiv.className = "status-msg";
-        await performSearch(`https://openlibrary.org/isbn/${isbn}.json`, statusDiv);
+        
+        // Avertissement pour les catégories non-livres
+        if (category !== 'Livre') {
+            statusDiv.textContent = "Note: Google Books est optimisé pour les Livres. Pour les Jeux/Vinyles, les résultats peuvent être absents.";
+            statusDiv.className = "status-msg warning-msg";
+            // On continue quand même la recherche au cas où
+        }
+
+        statusDiv.textContent = "Recherche Google Books en cours..."; 
+        statusDiv.className = "status-msg";
+        
+        try {
+            const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+            const data = await response.json();
+            
+            if (data.totalItems > 0 && data.items.length > 0) {
+                const book = data.items[0].volumeInfo;
+                fillFormGoogle(book);
+                statusDiv.textContent = "Infos trouvées (Google Books) !";
+                statusDiv.className = "status-msg success-msg";
+            } else {
+                throw new Error('Non trouvé');
+            }
+        } catch (error) {
+            statusDiv.textContent = "Non trouvé dans Google Books. Essayez la saisie manuelle.";
+            statusDiv.className = "status-msg error-msg";
+        }
     }
 
     async function fetchInfoByTitle() {
         const query = document.getElementById('searchTitleInput').value.trim();
         const statusDiv = document.getElementById('fetch-status');
+        const category = document.getElementById('category').value;
+
         if (!query) { statusDiv.textContent = "Titre requis."; statusDiv.className = "status-msg error-msg"; return; }
-        statusDiv.textContent = "Recherche..."; statusDiv.className = "status-msg";
-        const url = `https://openlibrary.org/search.json?title=${encodeURIComponent(query)}&limit=1`;
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
-            if (data.numFound > 0 && data.docs.length > 0) {
-                const book = data.docs[0];
-                fillForm({
-                    title: book.title,
-                    author: book.author_name ? book.author_name[0] : '',
-                    first_publish_date: book.first_publish_date ? book.first_publish_date.substring(0, 4) : '',
-                    isbn: book.isbn ? book.isbn[0] : ''
-                });
-                statusDiv.textContent = "Trouvé !"; statusDiv.className = "status-msg success-msg";
-            } else { throw new Error('Non trouvé'); }
-        } catch (error) {
-            statusDiv.textContent = "Aucun résultat."; statusDiv.className = "status-msg error-msg";
+        
+        if (category !== 'Livre') {
+            statusDiv.textContent = "Note: Google Books est optimisé pour les Livres.";
+            statusDiv.className = "status-msg warning-msg";
         }
-    }
 
-    async function performSearch(url, statusDiv) {
+        statusDiv.textContent = "Recherche Google Books..."; 
+        statusDiv.className = "status-msg";
+        
         try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Non trouvé');
+            const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(query)}`);
             const data = await response.json();
-            if (data.title) {
-                fillForm(data);
-                statusDiv.textContent = "Trouvé !"; statusDiv.className = "status-msg success-msg";
-            } else { throw new Error('Incomplet'); }
-        } catch (error) {
-            statusDiv.textContent = "Non trouvé. Saisie manuelle."; statusDiv.className = "status-msg error-msg";
-        }
-    }
-
-    function fillForm(data) {
-        document.getElementById('title').value = data.title || '';
-        document.getElementById('year').value = data.first_publish_date || '';
-        if (data.authors) {
-            if (Array.isArray(data.authors)) {
-                if (typeof data.authors[0] === 'string') document.getElementById('author').value = data.authors[0];
-                else if (data.authors[0].name) document.getElementById('author').value = data.authors[0].name;
+            
+            if (data.totalItems > 0 && data.items.length > 0) {
+                const book = data.items[0].volumeInfo;
+                fillFormGoogle(book);
+                statusDiv.textContent = "Infos trouvées (Google Books) !";
+                statusDiv.className = "status-msg success-msg";
+            } else { 
+                throw new Error('Aucun résultat'); 
             }
+        } catch (error) {
+            statusDiv.textContent = "Aucun résultat dans Google Books. Saisie manuelle recommandée.";
+            statusDiv.className = "status-msg error-msg";
         }
-        if (data.author && !document.getElementById('author').value) document.getElementById('author').value = data.author;
-        if (data.isbn && !document.getElementById('isbn').value) {
-            const cleanIsbn = Array.isArray(data.isbn) ? data.isbn[0] : data.isbn;
-            document.getElementById('isbn').value = cleanIsbn ? cleanIsbn.replace(/[^0-9]/g, '') : '';
+    }
+
+    function fillFormGoogle(data) {
+        // Titre
+        document.getElementById('title').value = data.title || '';
+        
+        // Année (extraction depuis publishedDate)
+        if (data.publishedDate) {
+            const yearMatch = data.publishedDate.match(/^\d{4}/);
+            document.getElementById('year').value = yearMatch ? yearMatch[0] : '';
+        } else {
+            document.getElementById('year').value = '';
+        }
+        
+        // Auteurs (Google renvoie un tableau)
+        if (data.authors && data.authors.length > 0) {
+            document.getElementById('author').value = data.authors.join(', ');
+        } else {
+            document.getElementById('author').value = '';
+        }
+        
+        // ISBN (utile si recherche par titre)
+        if (data.industryIdentifiers) {
+            const isbn13 = data.industryIdentifiers.find(id => id.type === 'ISBN_13');
+            if (isbn13 && !document.getElementById('isbn').value) {
+                document.getElementById('isbn').value = isbn13.identifier;
+            }
         }
     }
 
