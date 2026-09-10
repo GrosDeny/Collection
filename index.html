@@ -26,7 +26,7 @@
         }
         #auth-container h2 { margin-top: 0; color: var(--primary); }
         .auth-input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        .auth-toggle { color: var(--accent); cursor: pointer; text-decoration: underline; font-size: 0.9em; margin-top: 15px; display: block; }
+        .auth-notice { color: #7f8c8d; font-size: 0.85em; margin-top: 15px; background: #f9f9f9; padding: 10px; border-radius: 4px; }
         
         /* Cacher l'appli par défaut */
         #app-content { display: none; }
@@ -74,12 +74,17 @@
 
 <!-- ÉCRAN DE CONNEXION -->
 <div id="auth-container">
-    <h2 id="auth-title">Connexion</h2>
+    <h2>Connexion Sécurisée</h2>
+    <p style="font-size:0.9em; color:#666; margin-bottom:20px;">Accès réservé à l'administrateur</p>
+    
     <input type="email" id="auth-email" class="auth-input" placeholder="Votre email">
     <input type="password" id="auth-password" class="auth-input" placeholder="Votre mot de passe">
-    <button class="accent" style="width:100%" onclick="handleAuth()" id="auth-btn">Se connecter</button>
+    <button class="accent" style="width:100%" onclick="handleLogin()" id="auth-btn">Se connecter</button>
     <div id="auth-error" class="status-msg error-msg"></div>
-    <span class="auth-toggle" onclick="toggleAuthMode()" id="auth-toggle-text">Pas de compte ? Créer un compte</span>
+    
+    <div class="auth-notice">
+        🔒 L'inscription de nouveaux comptes est désactivée.<br>Seul le compte administrateur existant peut se connecter.
+    </div>
 </div>
 
 <!-- APPLICATION PRINCIPALE (Cachée si non connecté) -->
@@ -169,20 +174,16 @@
     let html5QrcodeScanner = null;
     let currentFilter = 'All';
     let isOnline = false;
-    let isLoginMode = true; // true = Connexion, false = Inscription
 
     // Éléments DOM Auth
     const authContainer = document.getElementById('auth-container');
     const appContent = document.getElementById('app-content');
-    const authTitle = document.getElementById('auth-title');
     const authBtn = document.getElementById('auth-btn');
-    const authToggleText = document.getElementById('auth-toggle-text');
     const authError = document.getElementById('auth-error');
     const userEmailSpan = document.getElementById('user-email');
 
-    // Vérifier si déjà connecté au chargement (Méthode mise à jour)
+    // Vérifier si déjà connecté au chargement
     window.addEventListener('DOMContentLoaded', async () => {
-        // Utilisation de getSession() au lieu de session()
         const { data: { session } } = await mySupabase.auth.getSession();
         
         if (session) {
@@ -192,7 +193,6 @@
             showAuth();
         }
         
-        // Écouter les changements d'auth
         mySupabase.auth.onAuthStateChange((event, session) => {
             if (event === 'SIGNED_IN' && session) {
                 showApp(session.user.email);
@@ -217,54 +217,30 @@
         userEmailSpan.textContent = email;
     }
 
-    function toggleAuthMode() {
-        isLoginMode = !isLoginMode;
-        if (isLoginMode) {
-            authTitle.textContent = 'Connexion';
-            authBtn.textContent = 'Se connecter';
-            authToggleText.textContent = "Pas de compte ? Créer un compte";
-        } else {
-            authTitle.textContent = 'Créer un compte';
-            authBtn.textContent = "S'inscrire";
-            authToggleText.textContent = "Déjà un compte ? Se connecter";
-        }
-        authError.textContent = '';
-    }
-
-    async function handleAuth() {
+    // Fonction de connexion UNIQUEMENT (plus d'inscription)
+    async function handleLogin() {
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value.trim();
         authError.textContent = '';
         authBtn.disabled = true;
-        authBtn.textContent = "Chargement...";
+        authBtn.textContent = "Connexion...";
 
         if (!email || !password) {
             authError.textContent = "Email et mot de passe requis.";
             authBtn.disabled = false;
-            authBtn.textContent = isLoginMode ? 'Se connecter' : "S'inscrire";
+            authBtn.textContent = 'Se connecter';
             return;
         }
 
-        if (isLoginMode) {
-            const { error } = await mySupabase.auth.signInWithPassword({ email, password });
-            if (error) {
-                authError.textContent = "Erreur: " + error.message;
-                authBtn.disabled = false;
-                authBtn.textContent = 'Se connecter';
-            }
-            // Si succès, le listener onAuthStateChange gérera l'affichage
-        } else {
-            const { error } = await mySupabase.auth.signUp({ email, password });
-            if (error) {
-                authError.textContent = "Erreur: " + error.message;
-                authBtn.disabled = false;
-                authBtn.textContent = "S'inscrire";
-            } else {
-                authError.textContent = "Compte créé ! Connexion automatique...";
-                authError.className = "status-msg success-msg";
-                // La connexion est automatique après signup
-            }
+        const { error } = await mySupabase.auth.signInWithPassword({ email, password });
+        
+        if (error) {
+            // Message générique pour ne pas dire si l'email existe ou non
+            authError.textContent = "Échec de la connexion. Vérifiez vos identifiants.";
+            authBtn.disabled = false;
+            authBtn.textContent = 'Se connecter';
         }
+        // Si succès, le listener onAuthStateChange gérera l'affichage
     }
 
     async function handleLogout() {
