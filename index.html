@@ -5,26 +5,57 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ma Collection Éthique</title>
     <style>
-        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --card-bg: #ffffff; --text: #333; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; line-height: 1.6; }
+        :root { 
+            --primary: #2c3e50; 
+            --accent: #27ae60; 
+            --bg: #f4f7f6; 
+            --card-bg: #ffffff; 
+            --text: #333; 
+            --border: #ddd;
+            --tag-bg: #eee;
+            --tag-text: #333;
+        }
+
+        /* Mode Sombre */
+        body.dark-mode { 
+            --primary: #bdc3c7; 
+            --accent: #2ecc71; 
+            --bg: #1a1a1a; 
+            --card-bg: #2c2c2c; 
+            --text: #f0f0f0; 
+            --border: #444;
+            --tag-bg: #444;
+            --tag-text: #fff;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg); 
+            color: var(--text); 
+            margin: 0; 
+            padding: 0; 
+            line-height: 1.6; 
+            transition: background-color 0.3s, color 0.3s;
+        }
+
         .container { max-width: 800px; margin: 0 auto; padding: 15px; }
         h1 { text-align: center; color: var(--primary); }
         
         /* Auth Styles */
-        #auth-container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
-        .auth-input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        .auth-notice { font-size: 0.85em; color: #7f8c8d; margin-top: 15px; background: #f9f9f9; padding: 10px; border-radius: 4px; }
+        #auth-container { max-width: 400px; margin: 50px auto; background: var(--card-bg); padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        .auth-input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; background: var(--card-bg); color: var(--text); }
+        .auth-notice { font-size: 0.85em; color: #7f8c8d; margin-top: 15px; background: rgba(0,0,0,0.05); padding: 10px; border-radius: 4px; }
         .status-msg { margin-top: 10px; font-size: 0.9em; min-height: 20px; }
         .error-msg { color: #e74c3c; }
         
         /* App Styles */
         #app-content { display: none; }
-        .tabs { display: flex; overflow-x: auto; background: #fff; border-radius: 8px; margin-bottom: 15px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .tabs { display: flex; overflow-x: auto; background: var(--card-bg); border-radius: 8px; margin-bottom: 15px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .tab-btn { flex: 1; padding: 12px; border: none; background: none; cursor: pointer; font-weight: 600; color: #bdc3c7; border-bottom: 3px solid transparent; }
         .tab-btn.active { color: var(--primary); border-bottom-color: var(--accent); }
         
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        input, select { width: 100%; padding: 12px; margin: 5px 0 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input, select { width: 100%; padding: 12px; margin: 5px 0 15px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; background: var(--card-bg); color: var(--text); }
         .btn-row { display: flex; gap: 10px; margin-bottom: 10px; }
         
         button { background-color: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; }
@@ -39,9 +70,9 @@
         #scan-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; height: 2px; background: red; }
 
         .item-list { list-style: none; padding: 0; }
-        .item-card { background: white; border-left: 6px solid var(--primary); padding: 15px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .item-card { background: var(--card-bg); border-left: 6px solid var(--primary); padding: 15px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .delete-btn { background: #e74c3c; width: auto; padding: 5px 10px; font-size: 0.8em; margin-left: 10px; }
-        .tag { background: #eee; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; margin-left: 5px; }
+        .tag { background: var(--tag-bg); color: var(--tag-text); padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; margin-left: 5px; }
     </style>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -53,7 +84,7 @@
     <h2>Connexion</h2>
     <input type="email" id="auth-email" class="auth-input" placeholder="Email">
     <input type="password" id="auth-password" class="auth-input" placeholder="Mot de passe">
-    <button class="accent" id="btn-login" onclick="doLogin()">Se connecter</button>
+    <button class="accent" id="btn-login" onclick="App.doLogin()">Se connecter</button>
     <div id="login-msg" class="status-msg error-msg"></div>
     <div class="auth-notice">🔒 Accès réservé. Inscriptions désactivées.</div>
 </div>
@@ -61,9 +92,12 @@
 <!-- APPLICATION -->
 <div id="app-content">
     <div class="container">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
             <h1 style="margin:0;">📚 Ma Collection</h1>
-            <button class="logout-btn" onclick="doLogout()">Déconnexion</button>
+            <div style="display:flex; gap:10px;">
+                <button class="secondary" onclick="App.toggleTheme()">🌓 Thème</button>
+                <button class="logout-btn" onclick="App.doLogout()">Déconnexion</button>
+            </div>
         </div>
 
         <div class="card">
@@ -79,15 +113,15 @@
             <label>ISBN</label>
             <div class="btn-row">
                 <input type="text" id="isbn" placeholder="Code-barres" style="margin:0;">
-                <button class="secondary" onclick="startCamera()">📷</button>
+                <button class="secondary" onclick="App.startCamera()">📷</button>
             </div>
             <div id="camera-container"><video id="video"></video><div id="scan-overlay"></div></div>
-            <button class="search-btn" onclick="searchISBN()" style="margin-bottom:15px;">🔍 Chercher par ISBN</button>
+            <button class="search-btn" onclick="App.searchISBN()" style="margin-bottom:15px;">🔍 Chercher par ISBN</button>
 
             <label>OU par Titre</label>
             <div class="btn-row">
                 <input type="text" id="search-title" placeholder="Titre" style="margin:0;">
-                <button class="search-btn" style="width:auto;" onclick="searchTitle()">Go</button>
+                <button class="search-btn" style="width:auto;" onclick="App.searchTitle()">Go</button>
             </div>
             <div id="search-msg" class="status-msg"></div>
 
@@ -98,246 +132,347 @@
             <label>Année</label>
             <input type="number" id="item-year">
 
-            <button class="accent" id="btn-add" onclick="addItem()">Ajouter</button>
+            <button class="accent" id="btn-add" onclick="App.addItem()">Ajouter</button>
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="setFilter('All', this)">Tous</button>
-            <button class="tab-btn" onclick="setFilter('Livre', this)">Livres</button>
-            <button class="tab-btn" onclick="setFilter('JdR', this)">JdR</button>
-            <button class="tab-btn" onclick="setFilter('Jeu de Société', this)">Jeux</button>
-            <button class="tab-btn" onclick="setFilter('Vinyle', this)">Vinyles</button>
+            <button class="tab-btn active" onclick="App.setFilter('All', this)">Tous</button>
+            <button class="tab-btn" onclick="App.setFilter('Livre', this)">Livres</button>
+            <button class="tab-btn" onclick="App.setFilter('JdR', this)">JdR</button>
+            <button class="tab-btn" onclick="App.setFilter('Jeu de Société', this)">Jeux</button>
+            <button class="tab-btn" onclick="App.setFilter('Vinyle', this)">Vinyles</button>
         </div>
 
         <div class="card">
-            <input type="text" id="internal-search" placeholder="🔍 Filtrer la liste..." onkeyup="renderList()">
+            <input type="text" id="internal-search" placeholder="🔍 Filtrer la liste..." onkeyup="App.renderList()">
             <ul id="list" class="item-list"></ul>
-            <button class="logout-btn" style="width:100%; margin-top:20px;" onclick="clearAll()">⚠️ Tout effacer</button>
+            
+            <div style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap;">
+                <button class="secondary" onclick="App.exportCSV()" style="flex:1;">📥 Exporter CSV</button>
+                <button class="logout-btn" onclick="App.clearAll()" style="flex:1;">⚠️ Tout effacer</button>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    // CONFIG
-    const SUPABASE_URL = 'https://xknjgdtnzxvbzavzksgr.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbmpnZHRuenh2Ynphdnprc2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MjU1MjIsImV4cCI6MjEwNDUwMTUyMn0.a5fOexL2fXWUmBmQO2k3KfnyNnC313rtmM9xlwo2azA';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+/**
+ * Application de Gestion de Collection - Version Refactorisée & Sécurisée
+ * Encapsulation dans un objet unique 'App' pour éviter la pollution du scope global.
+ */
+const App = {
+    config: {
+        supabaseUrl: 'https://xknjgdtnzxvbzavzksgr.supabase.co',
+        supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbmpnZHRuenh2Ynphdnprc2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MjU1MjIsImV4cCI6MjEwNDUwMTUyMn0.a5fOexL2fXWUmBmQO2k3KfnyNnC313rtmM9xlwo2azA',
+        openLibraryBase: 'https://openlibrary.org'
+    },
+    state: {
+        collection: [],
+        filter: 'All',
+        scanner: null,
+        user: null
+    },
+    supabase: null,
 
-    let collection = [];
-    let filter = 'All';
-    let scanner = null;
+    // Initialisation
+    init: function() {
+        this.supabase = window.supabase.createClient(this.config.supabaseUrl, this.config.supabaseKey);
+        
+        // Gestion du thème au chargement
+        if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-mode');
 
-    // --- AUTHENTIFICATION ---
-    
-    // Vérification au démarrage
-    window.addEventListener('DOMContentLoaded', async () => {
-        console.log("Démarrage de l'application...");
-        const { data } = await supabase.auth.getSession();
+        // Vérification session
+        this.checkSession();
+    },
+
+    // Authentification
+    checkSession: async function() {
+        const { data } = await this.supabase.auth.getSession();
         if (data.session) {
-            showApp(data.session.user.email);
+            this.state.user = data.session.user;
+            this.showApp();
         } else {
-            showLogin();
+            this.showLogin();
         }
-    });
+    },
 
-    function showLogin() {
+    showLogin: function() {
         document.getElementById('auth-container').style.display = 'block';
         document.getElementById('app-content').style.display = 'none';
-        document.getElementById('login-msg').textContent = '';
-    }
+        this.setStatus('login-msg', '');
+    },
 
-    function showApp(email) {
+    showApp: function() {
         document.getElementById('auth-container').style.display = 'none';
         document.getElementById('app-content').style.display = 'block';
-        console.log("Connecté en tant que :", email);
-        loadCollection();
-    }
+        this.loadCollection();
+        this.setupRealtimeListener();
+    },
 
-    async function doLogin() {
+    doLogin: async function() {
         const email = document.getElementById('auth-email').value;
         const pass = document.getElementById('auth-password').value;
         const btn = document.getElementById('btn-login');
         const msg = document.getElementById('login-msg');
 
-        if (!email || !pass) { msg.textContent = "Remplissez tous les champs"; return; }
+        if (!email || !pass) { this.setStatus('login-msg', "Remplissez tous les champs", true); return; }
 
-        btn.disabled = true;
-        btn.textContent = "Connexion...";
-        msg.textContent = "";
+        this.toggleButton(btn, true, "Connexion...");
+        this.setStatus('login-msg', '');
 
-        const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
+        const { error } = await this.supabase.auth.signInWithPassword({ email, password: pass });
 
         if (error) {
-            msg.textContent = "Erreur: " + error.message;
-            btn.disabled = false;
-            btn.textContent = "Se connecter";
+            this.setStatus('login-msg', "Erreur: " + error.message, true);
+            this.toggleButton(btn, false, "Se connecter");
         } else {
-            // Rechargement automatique de la page pour initialiser la session proprement
             window.location.reload();
         }
-    }
+    },
 
-    async function doLogout() {
-        await supabase.auth.signOut();
-        collection = [];
+    doLogout: async function() {
+        await this.supabase.auth.signOut();
+        this.state.collection = [];
+        this.state.user = null;
         document.getElementById('list').innerHTML = '';
-        showLogin();
-    }
+        this.showLogin();
+    },
 
-    // --- DONNÉES ---
-
-    async function loadCollection() {
-        const { data, error } = await supabase.from('collection').select('*').order('dateAdded', { ascending: false });
-        if (error) { console.error(error); alert("Erreur de chargement"); return; }
-        collection = data || [];
-        renderList();
+    // Gestion des Données
+    loadCollection: async function() {
+        if (!this.state.user) return;
         
-        // Écouteur temps réel
-        supabase.channel('changes')
+        // IMPORTANT : Assurez-vous d'avoir ajouté la colonne 'user_id' dans Supabase et exécuté le script RLS
+        const { data, error } = await this.supabase
+            .from('collection')
+            .select('*')
+            .eq('user_id', this.state.user.id) 
+            .order('dateAdded', { ascending: false });
+
+        if (error) { 
+            console.error(error); 
+            alert("Erreur de chargement. Vérifiez que la colonne 'user_id' existe dans la table."); 
+            return; 
+        }
+        this.state.collection = data || [];
+        this.renderList();
+    },
+
+    setupRealtimeListener: function() {
+        this.supabase.channel('changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'collection' }, () => {
-                loadCollection();
+                this.loadCollection();
             })
             .subscribe();
-    }
+    },
 
-    function renderList() {
+    addItem: async function() {
+        const title = document.getElementById('item-title').value;
+        if (!title) { alert("Titre requis"); return; }
+
+        const btn = document.getElementById('btn-add');
+        this.toggleButton(btn, true);
+
+        const newItem = {
+            title: title,
+            author: document.getElementById('item-author').value,
+            year: document.getElementById('item-year').value,
+            category: document.getElementById('category').value,
+            isbn: document.getElementById('isbn').value,
+            dateAdded: new Date().toISOString(),
+            user_id: this.state.user.id // CRUCIAL pour la sécurité RLS
+        };
+
+        const { error } = await this.supabase.from('collection').insert([newItem]);
+
+        if (error) { alert("Erreur: " + error.message); }
+        else {
+            this.resetForm();
+            this.setStatus('search-msg', "Ajouté !", false, "green");
+            setTimeout(() => this.setStatus('search-msg', ""), 2000);
+        }
+        this.toggleButton(btn, false);
+    },
+
+    deleteItem: async function(id) {
+        if(confirm("Supprimer cet élément ?")) {
+            await this.supabase.from('collection').delete().eq('id', id);
+        }
+    },
+
+    clearAll: async function() {
+        if(confirm("ATTENTION: Voulez-vous vraiment TOUT effacer ?")) {
+            await this.supabase.from('collection').delete().neq('id', 0);
+        }
+    },
+
+    // Utilitaires d'affichage
+    renderList: function() {
         const list = document.getElementById('list');
         const search = document.getElementById('internal-search').value.toLowerCase();
         list.innerHTML = '';
 
-        const filtered = collection.filter(item => {
-            const matchCat = filter === 'All' || item.category === filter;
-            const matchSearch = item.title.toLowerCase().includes(search) || (item.author && item.author.toLowerCase().includes(search));
+        const filtered = this.state.collection.filter(item => {
+            const matchCat = this.state.filter === 'All' || item.category === this.state.filter;
+            const matchSearch = (item.title || '').toLowerCase().includes(search) || 
+                                (item.author || '').toLowerCase().includes(search);
             return matchCat && matchSearch;
         });
+
+        if (filtered.length === 0) {
+            list.innerHTML = '<li style="text-align:center; color:#777; padding:20px;">Aucun élément trouvé.</li>';
+            return;
+        }
 
         filtered.forEach(item => {
             const li = document.createElement('li');
             li.className = 'item-card';
             li.innerHTML = `
                 <div>
-                    <strong>${item.title}</strong> <span class="tag">${item.category}</span><br>
-                    <small>${item.author || ''} ${item.year ? '('+item.year+')' : ''}</small>
+                    <strong>${this.escapeHtml(item.title)}</strong> <span class="tag">${this.escapeHtml(item.category)}</span><br>
+                    <small>${this.escapeHtml(item.author || '')} ${item.year ? '('+item.year+')' : ''}</small>
                 </div>
-                <button class="delete-btn" onclick="deleteItem(${item.id})">X</button>
+                <button class="delete-btn" onclick="App.deleteItem(${item.id})">X</button>
             `;
             list.appendChild(li);
         });
-    }
+    },
 
-    function setFilter(cat, btn) {
-        filter = cat;
+    setFilter: function(cat, btn) {
+        this.state.filter = cat;
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        renderList();
-    }
+        this.renderList();
+    },
 
-    async function addItem() {
-        const title = document.getElementById('item-title').value;
-        if (!title) { alert("Titre requis"); return; }
+    resetForm: function() {
+        document.getElementById('item-title').value = '';
+        document.getElementById('item-author').value = '';
+        document.getElementById('item-year').value = '';
+        document.getElementById('isbn').value = '';
+    },
 
-        const btn = document.getElementById('btn-add');
-        btn.disabled = true;
+    setStatus: function(elementId, msg, isError = false, color = '') {
+        const el = document.getElementById(elementId);
+        el.textContent = msg;
+        el.className = 'status-msg' + (isError ? ' error-msg' : '');
+        if (color) el.style.color = color;
+    },
 
-        const { error } = await supabase.from('collection').insert([{
-            title: title,
-            author: document.getElementById('item-author').value,
-            year: document.getElementById('item-year').value,
-            category: document.getElementById('category').value,
-            isbn: document.getElementById('isbn').value,
-            dateAdded: new Date().toISOString()
-        }]);
+    toggleButton: function(btn, disabled, text = null) {
+        btn.disabled = disabled;
+        if (text) btn.textContent = text;
+    },
 
-        if (error) { alert("Erreur: " + error.message); }
-        else {
-            // Reset form
-            document.getElementById('item-title').value = '';
-            document.getElementById('item-author').value = '';
-            document.getElementById('item-year').value = '';
-            document.getElementById('isbn').value = '';
-            document.getElementById('search-msg').textContent = "Ajouté !";
-            setTimeout(() => document.getElementById('search-msg').textContent = "", 2000);
-        }
-        btn.disabled = false;
-    }
+    escapeHtml: function(text) {
+        if (!text) return '';
+        return text.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    },
 
-    async function deleteItem(id) {
-        if(confirm("Supprimer ?")) {
-            await supabase.from('collection').delete().eq('id', id);
-        }
-    }
-
-    async function clearAll() {
-        if(confirm("TOUT EFFACER ?")) {
-            await supabase.from('collection').delete().neq('id', 0);
-        }
-    }
-
-    // --- RECHERCHE & CAMÉRA ---
-
-    async function searchISBN() {
-        const isbn = document.getElementById('isbn').value.replace(/[^0-9]/g, '');
+    // Recherche & Caméra
+    searchISBN: async function() {
+        const isbn = document.getElementById('isbn').value.replace(/[^0-9X]/g, ''); 
         const msg = document.getElementById('search-msg');
-        if (!isbn) { msg.textContent = "ISBN requis"; return; }
+        if (!isbn) { this.setStatus('search-msg', "ISBN requis", true); return; }
         
-        msg.textContent = "Recherche...";
+        this.setStatus('search-msg', "Recherche...");
         try {
-            const res = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
+            const res = await fetch(`${this.config.openLibraryBase}/isbn/${isbn}.json`);
             if (!res.ok) throw new Error("Non trouvé");
             const data = await res.json();
             
             document.getElementById('item-title').value = data.title || '';
             document.getElementById('item-year').value = data.first_publish_date ? data.first_publish_date.substr(0,4) : '';
-            if (data.authors && data.authors[0]) {
-                document.getElementById('item-author').value = data.authors[0].name || data.authors[0];
+            
+            if (data.authors && data.authors.length > 0) {
+                const author = data.authors[0];
+                document.getElementById('item-author').value = (typeof author === 'object' && author.name) ? author.name : author;
             }
-            msg.textContent = "Trouvé !";
-            msg.style.color = "green";
+            
+            this.setStatus('search-msg', "Trouvé !", false, "green");
         } catch (e) {
-            msg.textContent = "Non trouvé. Saisie manuelle.";
-            msg.style.color = "red";
+            this.setStatus('search-msg', "Non trouvé. Saisie manuelle.", true, "red");
         }
-    }
+    },
 
-    async function searchTitle() {
+    searchTitle: async function() {
         const q = document.getElementById('search-title').value;
         const msg = document.getElementById('search-msg');
         if (!q) return;
-        msg.textContent = "Recherche...";
+        this.setStatus('search-msg', "Recherche...");
         
         try {
-            const res = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(q)}&limit=1`);
+            const res = await fetch(`${this.config.openLibraryBase}/search.json?title=${encodeURIComponent(q)}&limit=1`);
             const data = await res.json();
             if (data.docs.length > 0) {
                 const b = data.docs[0];
                 document.getElementById('item-title').value = b.title;
                 document.getElementById('item-author').value = b.author_name ? b.author_name[0] : '';
                 document.getElementById('item-year').value = b.first_publish_date ? b.first_publish_date.substr(0,4) : '';
-                msg.textContent = "Trouvé !";
-                msg.style.color = "green";
+                this.setStatus('search-msg', "Trouvé !", false, "green");
             } else { throw new Error(); }
         } catch (e) {
-            msg.textContent = "Aucun résultat.";
-            msg.style.color = "red";
+            this.setStatus('search-msg', "Aucun résultat.", true, "red");
         }
-    }
+    },
 
-    function startCamera() {
+    startCamera: function() {
         const container = document.getElementById('camera-container');
         if (container.style.display === 'block') {
-            if (scanner) scanner.stop();
+            if (this.state.scanner) this.state.scanner.stop();
             container.style.display = 'none';
             return;
         }
+        
         container.style.display = 'block';
-        scanner = new Html5Qrcode("camera-container");
-        scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
-            document.getElementById('isbn').value = text.replace(/[^0-9]/g, '');
-            scanner.stop();
+        this.state.scanner = new window.Html5Qrcode("camera-container");
+        
+        this.state.scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
+            document.getElementById('isbn').value = text.replace(/[^0-9X]/g, '');
+            this.state.scanner.stop();
             container.style.display = 'none';
-            searchISBN();
-        }).catch(err => alert("Erreur caméra: " + err));
+            this.searchISBN();
+        }).catch(err => {
+            console.error(err);
+            alert("Impossible d'accéder à la caméra. Vérifiez les permissions.");
+            container.style.display = 'none';
+        });
+    },
+    
+    // Nouvelles fonctions : Thème & Export
+    toggleTheme: function() {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    },
+
+    exportCSV: function() {
+        if (this.state.collection.length === 0) { alert("Rien à exporter"); return; }
+        
+        const headers = ["Titre", "Auteur", "Année", "Catégorie", "ISBN"];
+        const rows = this.state.collection.map(item => [
+            `"${(item.title || '').replace(/"/g, '""')}"`,
+            `"${(item.author || '').replace(/"/g, '""')}"`,
+            item.year || '',
+            item.category,
+            item.isbn || ''
+        ]);
+
+        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `ma_collection_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
+};
+
+// Lancement de l'application
+App.init();
 </script>
 </body>
 </html>
