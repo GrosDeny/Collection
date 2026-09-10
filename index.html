@@ -112,7 +112,7 @@
 
             <label>ISBN</label>
             <div class="btn-row">
-                <input type="text" id="isbn" placeholder="Code-barres" style="margin:0;">
+                <input type="text" id="isbn" placeholder="Code-barres (ex: 9782070408504)" style="margin:0;">
                 <button class="secondary" onclick="App.startCamera()">📷</button>
             </div>
             <div id="camera-container"><video id="video"></video><div id="scan-overlay"></div></div>
@@ -120,7 +120,7 @@
 
             <label>OU par Titre</label>
             <div class="btn-row">
-                <input type="text" id="search-title" placeholder="Titre" style="margin:0;">
+                <input type="text" id="search-title" placeholder="Titre du livre" style="margin:0;">
                 <button class="search-btn" style="width:auto;" onclick="App.searchTitle()">Go</button>
             </div>
             <div id="search-msg" class="status-msg"></div>
@@ -157,8 +157,8 @@
 
 <script>
 /**
- * Application de Gestion de Collection - Version Refactorisée & Sécurisée
- * Encapsulation dans un objet unique 'App' pour éviter la pollution du scope global.
+ * Application de Gestion de Collection - Version Corrigée
+ * Correction des appels API OpenLibrary
  */
 const App = {
     config: {
@@ -174,18 +174,12 @@ const App = {
     },
     supabase: null,
 
-    // Initialisation
     init: function() {
         this.supabase = window.supabase.createClient(this.config.supabaseUrl, this.config.supabaseKey);
-        
-        // Gestion du thème au chargement
         if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-mode');
-
-        // Vérification session
         this.checkSession();
     },
 
-    // Authentification
     checkSession: async function() {
         const { data } = await this.supabase.auth.getSession();
         if (data.session) {
@@ -238,22 +232,15 @@ const App = {
         this.showLogin();
     },
 
-    // Gestion des Données
     loadCollection: async function() {
         if (!this.state.user) return;
-        
-        // IMPORTANT : Assurez-vous d'avoir ajouté la colonne 'user_id' dans Supabase et exécuté le script RLS
         const { data, error } = await this.supabase
             .from('collection')
             .select('*')
             .eq('user_id', this.state.user.id) 
             .order('dateAdded', { ascending: false });
 
-        if (error) { 
-            console.error(error); 
-            alert("Erreur de chargement. Vérifiez que la colonne 'user_id' existe dans la table."); 
-            return; 
-        }
+        if (error) { console.error(error); alert("Erreur de chargement"); return; }
         this.state.collection = data || [];
         this.renderList();
     },
@@ -280,7 +267,7 @@ const App = {
             category: document.getElementById('category').value,
             isbn: document.getElementById('isbn').value,
             dateAdded: new Date().toISOString(),
-            user_id: this.state.user.id // CRUCIAL pour la sécurité RLS
+            user_id: this.state.user.id
         };
 
         const { error } = await this.supabase.from('collection').insert([newItem]);
@@ -306,7 +293,6 @@ const App = {
         }
     },
 
-    // Utilitaires d'affichage
     renderList: function() {
         const list = document.getElementById('list');
         const search = document.getElementById('internal-search').value.toLowerCase();
@@ -369,50 +355,99 @@ const App = {
         return text.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     },
 
-    // Recherche & Caméra
+    // --- CORRECTION RECHERCHE ISBN ---
     searchISBN: async function() {
-        const isbn = document.getElementById('isbn').value.replace(/[^0-9X]/g, ''); 
+        // Nettoyage strict : on ne garde que les chiffres et le X final
+        let isbn = document.getElementById('isbn').value.replace(/[^0-9X]/g, '').toUpperCase();
         const msg = document.getElementById('search-msg');
+        
         if (!isbn) { this.setStatus('search-msg', "ISBN requis", true); return; }
         
-        this.setStatus('search-msg', "Recherche...");
+        // Si l'ISBN fait 10 chiffres et ne commence pas par 978, on essaie de le convertir ou de le chercher tel quel
+        // OpenLibrary accepte souvent les deux, mais le nettoyage est crucial
+        console.log("Recherche ISBN :", isbn);
+        this.setStatus('search-msg', "Recherche en cours...");
+
         try {
-            const res = await fetch(`${this.config.openLibraryBase}/isbn/${isbn}.json`);
-            if (!res.ok) throw new Error("Non trouvé");
+            // Tentative directe avec l'ISBN nettoyé
+            const url = `${this.config.openLibraryBase}/isbn/${isbn}.json`;
+            console.log("Appel API :", url);
+            
+            const res = await fetch(url);
+            
+            if (!res.ok) {
+                if (res.status === 404) throw new Error("Livre non trouvé dans la base OpenLibrary.");
+                throw new Error("Erreur serveur OpenLibrary (" + res.status + ")");
+            }
+            
             const data = await res.json();
             
-            document.getElementById('item-title').value = data.title || '';
+            // Vérification que le titre existe (parfois l'API renvoie des métadonnées vides)
+            if (!data.title) {
+                throw new Error("Données incomplètes (pas de titre).");
+            }
+
+            document.getElementById('item-title').value = data.title;
             document.getElementById('item-year').value = data.first_publish_date ? data.first_publish_date.substr(0,4) : '';
             
             if (data.authors && data.authors.length > 0) {
                 const author = data.authors[0];
                 document.getElementById('item-author').value = (typeof author === 'object' && author.name) ? author.name : author;
+            } else if (data.by) {
+                // Fallback pour certains formats de réponse
+                document.getElementById('item-author').value = data.by;
             }
             
             this.setStatus('search-msg', "Trouvé !", false, "green");
         } catch (e) {
-            this.setStatus('search-msg', "Non trouvé. Saisie manuelle.", true, "red");
+            console.error(e);
+            this.setStatus('search-msg', "Non trouvé. Vérifiez l'ISBN ou saisissez manuellement.", true, "red");
         }
     },
 
+    // --- CORRECTION RECHERCHE TITRE ---
     searchTitle: async function() {
-        const q = document.getElementById('search-title').value;
+        const q = document.getElementById('search-title').value.trim();
         const msg = document.getElementById('search-msg');
-        if (!q) return;
-        this.setStatus('search-msg', "Recherche...");
+        if (!q) { this.setStatus('search-msg', "Veuillez entrer un titre.", true); return; }
+        
+        this.setStatus('search-msg', "Recherche en cours...");
+        console.log("Recherche titre :", q);
         
         try {
-            const res = await fetch(`${this.config.openLibraryBase}/search.json?title=${encodeURIComponent(q)}&limit=1`);
+            // Ajout de language=fr pour prioriser les résultats francophones si pertinent
+            const url = `${this.config.openLibraryBase}/search.json?title=${encodeURIComponent(q)}&limit=5&language=fr`;
+            console.log("Appel API :", url);
+
+            const res = await fetch(url);
+            if (!res.ok) throw new Error("Erreur de connexion");
+            
             const data = await res.json();
-            if (data.docs.length > 0) {
-                const b = data.docs[0];
-                document.getElementById('item-title').value = b.title;
-                document.getElementById('item-author').value = b.author_name ? b.author_name[0] : '';
-                document.getElementById('item-year').value = b.first_publish_date ? b.first_publish_date.substr(0,4) : '';
-                this.setStatus('search-msg', "Trouvé !", false, "green");
-            } else { throw new Error(); }
+            
+            if (!data.docs || data.docs.length === 0) {
+                throw new Error("Aucun résultat trouvé.");
+            }
+
+            // On prend le premier résultat pertinent
+            const book = data.docs[0];
+            console.log("Résultat trouvé :", book);
+
+            document.getElementById('item-title').value = book.title;
+            
+            // Gestion des auteurs (souvent un tableau)
+            if (book.author_name && book.author_name.length > 0) {
+                document.getElementById('item-author').value = book.author_name[0];
+            }
+            
+            // Gestion de l'année (parfois dans first_publish_year)
+            if (book.first_publish_year) {
+                document.getElementById('item-year').value = book.first_publish_year;
+            }
+            
+            this.setStatus('search-msg', "Trouvé !", false, "green");
         } catch (e) {
-            this.setStatus('search-msg', "Aucun résultat.", true, "red");
+            console.error(e);
+            this.setStatus('search-msg', "Aucun résultat. Essayez un titre plus court ou en anglais.", true, "red");
         }
     },
 
@@ -428,7 +463,9 @@ const App = {
         this.state.scanner = new window.Html5Qrcode("camera-container");
         
         this.state.scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
-            document.getElementById('isbn').value = text.replace(/[^0-9X]/g, '');
+            // Nettoyage immédiat du code scanné
+            const cleanCode = text.replace(/[^0-9X]/g, '').toUpperCase();
+            document.getElementById('isbn').value = cleanCode;
             this.state.scanner.stop();
             container.style.display = 'none';
             this.searchISBN();
@@ -439,7 +476,6 @@ const App = {
         });
     },
     
-    // Nouvelles fonctions : Thème & Export
     toggleTheme: function() {
         document.body.classList.toggle('dark-mode');
         const isDark = document.body.classList.contains('dark-mode');
@@ -471,7 +507,6 @@ const App = {
     }
 };
 
-// Lancement de l'application
 App.init();
 </script>
 </body>
