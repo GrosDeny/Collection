@@ -116,12 +116,12 @@
                 <button class="secondary" onclick="App.startCamera()">📷</button>
             </div>
             <div id="camera-container"><video id="video"></video><div id="scan-overlay"></div></div>
-            <button class="search-btn" onclick="App.searchISBN()" style="margin-bottom:15px;">🔍 Chercher par ISBN</button>
+            <button class="search-btn" id="btn-search-isbn" onclick="App.searchISBN()">🔍 Chercher par ISBN</button>
 
             <label>OU par Titre</label>
             <div class="btn-row">
                 <input type="text" id="search-title" placeholder="Titre du livre" style="margin:0;">
-                <button class="search-btn" style="width:auto;" onclick="App.searchTitle()">Go</button>
+                <button class="search-btn" id="btn-search-title" style="width:auto;" onclick="App.searchTitle()">Go</button>
             </div>
             <div id="search-msg" class="status-msg"></div>
 
@@ -157,8 +157,8 @@
 
 <script>
 /**
- * Application de Gestion de Collection - Version Google Books API
- * Remplacement d'OpenLibrary par Google Books pour une meilleure fiabilité
+ * Application de Gestion de Collection - Version avec Sécurité Anti-Spam
+ * Ajout d'un délai de 2 secondes entre les requêtes API
  */
 const App = {
     config: {
@@ -170,7 +170,10 @@ const App = {
         collection: [],
         filter: 'All',
         scanner: null,
-        user: null
+        user: null,
+        lastSearchTime: 0,
+        searchDelay: 2000, // Délai de sécurité en millisecondes (2 secondes)
+        isSearching: false
     },
     supabase: null,
 
@@ -355,22 +358,47 @@ const App = {
         return text.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     },
 
-    // --- NOUVELLE RECHERCHE ISBN AVEC GOOGLE BOOKS ---
+    // Vérification de sécurité avant recherche
+    canSearch: function() {
+        const now = Date.now();
+        if (this.state.isSearching) {
+            console.log("Recherche déjà en cours...");
+            return false;
+        }
+        if (now - this.state.lastSearchTime < this.state.searchDelay) {
+            const waitTime = Math.ceil((this.state.searchDelay - (now - this.state.lastSearchTime)) / 1000);
+            console.log(`Trop rapide ! Attendez encore ${waitTime}s`);
+            this.setStatus('search-msg', `Veuillez attendre ${waitType}s avant la prochaine recherche.`, true, "orange");
+            return false;
+        }
+        return true;
+    },
+
+    // --- RECHERCHE ISBN AVEC GOOGLE BOOKS + SÉCURITÉ ---
     searchISBN: async function() {
+        if (!this.canSearch()) return;
+
         let isbn = document.getElementById('isbn').value.replace(/[^0-9X]/g, '').toUpperCase();
         const msg = document.getElementById('search-msg');
         
         if (!isbn) { this.setStatus('search-msg', "ISBN requis", true); return; }
         
+        // Verrouillage
+        this.state.isSearching = true;
+        this.state.lastSearchTime = Date.now();
+        
         console.log("Recherche ISBN Google Books :", isbn);
         this.setStatus('search-msg', "Recherche en cours...");
 
         try {
-            // API Google Books : recherche par ISBN
             const url = `${this.config.googleBooksBase}/volumes?q=isbn:${isbn}`;
             console.log("Appel API :", url);
             
             const res = await fetch(url);
+            
+            if (res.status === 429) {
+                throw new Error("Trop de requêtes. Veuillez attendre 1 heure.");
+            }
             if (!res.ok) throw new Error("Erreur de connexion à Google Books");
             
             const data = await res.json();
@@ -382,10 +410,8 @@ const App = {
             const volume = data.items[0];
             const info = volume.volumeInfo;
 
-            // Remplissage des champs
             document.getElementById('item-title').value = info.title || '';
             
-            // Année : extraite de publishedDate (ex: "2020" ou "2020-05" ou "2020-05-15")
             if (info.publishedDate) {
                 const yearMatch = info.publishedDate.match(/^\d{4}/);
                 if (yearMatch) {
@@ -393,7 +419,6 @@ const App = {
                 }
             }
             
-            // Auteurs : tableau à convertir en chaîne
             if (info.authors && info.authors.length > 0) {
                 document.getElementById('item-author').value = info.authors.join(', ');
             }
@@ -401,25 +426,34 @@ const App = {
             this.setStatus('search-msg', "Trouvé !", false, "green");
         } catch (e) {
             console.error(e);
-            this.setStatus('search-msg', "Non trouvé. Vérifiez l'ISBN ou saisissez manuellement.", true, "red");
+            this.setStatus('search-msg', e.message.includes("Trop de requêtes") ? e.message : "Non trouvé. Vérifiez l'ISBN.", true, "red");
+        } finally {
+            // Déverrouillage
+            this.state.isSearching = false;
         }
     },
 
-    // --- NOUVELLE RECHERCHE TITRE AVEC GOOGLE BOOKS ---
+    // --- RECHERCHE TITRE AVEC GOOGLE BOOKS + SÉCURITÉ ---
     searchTitle: async function() {
+        if (!this.canSearch()) return;
+
         const q = document.getElementById('search-title').value.trim();
         const msg = document.getElementById('search-msg');
         if (!q) { this.setStatus('search-msg', "Veuillez entrer un titre.", true); return; }
         
+        // Verrouillage
+        this.state.isSearching = true;
+        this.state.lastSearchTime = Date.now();
+
         this.setStatus('search-msg', "Recherche en cours...");
         console.log("Recherche titre Google Books :", q);
         
         try {
-            // Recherche par titre avec restriction langue française si pertinent
             const url = `${this.config.googleBooksBase}/volumes?q=intitle:${encodeURIComponent(q)}&maxResults=5`;
             console.log("Appel API :", url);
 
             const res = await fetch(url);
+            if (res.status === 429) throw new Error("Trop de requêtes. Veuillez attendre 1 heure.");
             if (!res.ok) throw new Error("Erreur de connexion");
             
             const data = await res.json();
@@ -428,7 +462,6 @@ const App = {
                 throw new Error("Aucun résultat trouvé.");
             }
 
-            // On prend le premier résultat
             const volume = data.items[0];
             const info = volume.volumeInfo;
             console.log("Résultat trouvé :", info);
@@ -449,7 +482,10 @@ const App = {
             this.setStatus('search-msg', "Trouvé !", false, "green");
         } catch (e) {
             console.error(e);
-            this.setStatus('search-msg', "Aucun résultat. Essayez un autre titre.", true, "red");
+            this.setStatus('search-msg', e.message.includes("Trop de requêtes") ? e.message : "Aucun résultat.", true, "red");
+        } finally {
+            // Déverrouillage
+            this.state.isSearching = false;
         }
     },
 
@@ -469,6 +505,7 @@ const App = {
             document.getElementById('isbn').value = cleanCode;
             this.state.scanner.stop();
             container.style.display = 'none';
+            // La recherche se lance ici, elle sera protégée par canSearch()
             this.searchISBN();
         }).catch(err => {
             console.error(err);
