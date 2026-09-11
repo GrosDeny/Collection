@@ -3,80 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Collection Éthique - Test IP</title>
+    <title>Ma Collection - Multi-Sources</title>
     <style>
-        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --card-bg: #ffffff; --text: #333; --border: #ddd; --tag-bg: #eee; --tag-text: #333; }
-        body.dark-mode { --primary: #bdc3c7; --accent: #2ecc71; --bg: #1a1a1a; --card-bg: #2c2c2c; --text: #f0f0f0; --border: #444; --tag-bg: #444; --tag-text: #fff; }
+        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --card-bg: #ffffff; --text: #333; --border: #ddd; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; line-height: 1.6; }
         .container { max-width: 800px; margin: 0 auto; padding: 15px; }
         h1 { text-align: center; color: var(--primary); }
-        #auth-container { max-width: 400px; margin: 50px auto; background: var(--card-bg); padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; display: none; } /* Caché par défaut pour le test si pas de login */
-        .auth-input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; background: var(--card-bg); color: var(--text); }
+        #auth-container { max-width: 400px; margin: 50px auto; background: var(--card-bg); padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        .auth-input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
         .status-msg { margin-top: 10px; font-size: 0.9em; min-height: 20px; font-weight: bold; }
         .error-msg { color: #e74c3c; }
+        .success-msg { color: #27ae60; }
+        .info-msg { color: #2980b9; }
         #app-content { display: none; }
         .card { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        input, select { width: 100%; padding: 12px; margin: 5px 0 15px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; background: var(--card-bg); color: var(--text); }
+        input, select { width: 100%; padding: 12px; margin: 5px 0 15px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
         .btn-row { display: flex; gap: 10px; margin-bottom: 10px; }
         button { background-color: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; }
-        button.secondary { background-color: #95a5a6; width: auto; }
         button.accent { background-color: var(--accent); }
         button.search-btn { background-color: #3498db; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
-        #camera-container { position: relative; width: 100%; height: 250px; background: #000; display: none; margin: 10px 0; border-radius: 4px; overflow: hidden; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        .item-list { list-style: none; padding: 0; }
-        .item-card { background: var(--card-bg); border-left: 6px solid var(--primary); padding: 15px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
-        .delete-btn { background: #e74c3c; width: auto; padding: 5px 10px; font-size: 0.8em; margin-left: 10px; }
-        .tag { background: var(--tag-bg); color: var(--tag-text); padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; margin-left: 5px; }
-        
-        /* Style spécifique pour le test d'IP */
-        #ip-test-info { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 0.9em; text-align: center; border: 1px solid #ffeeba; }
+        .source-log { font-size: 0.8em; color: #7f8c8d; margin-top: 5px; font-style: italic; }
     </style>
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-<!-- ÉCRAN DE CONNEXION (Simplifié pour le test) -->
-<div id="auth-container" style="display:block;">
-    <h2>Connexion Requise</h2>
-    <p>Pour tester la recherche, veuillez vous connecter.</p>
+<div id="auth-container">
+    <h2>Connexion</h2>
     <input type="email" id="auth-email" class="auth-input" placeholder="Email">
     <input type="password" id="auth-password" class="auth-input" placeholder="Mot de passe">
     <button class="accent" id="btn-login" onclick="App.doLogin()">Se connecter</button>
     <div id="login-msg" class="status-msg error-msg"></div>
 </div>
 
-<!-- APPLICATION -->
 <div id="app-content">
     <div class="container">
-        <div id="ip-test-info">
-            🌐 Test en cours. Si vous voyez ceci en 4G ou sur un autre réseau, l'IP a changé.
-            <br><small>Si l'erreur 429 persiste, videz le cache du navigateur.</small>
-        </div>
-
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h1 style="margin:0;">📚 Test Recherche Livre</h1>
-            <button class="secondary" onclick="App.doLogout()">Déconnexion</button>
-        </div>
-
-        <div class="card">
-            <h3>Test API Google Books</h3>
-            <label>ISBN à tester</label>
-            <div class="btn-row">
-                <input type="text" id="isbn" value="9782070408504" style="margin:0;">
-                <button class="search-btn" id="btn-search-isbn" onclick="App.searchISBN()">🔍 Tester</button>
-            </div>
-            <div id="search-msg" class="status-msg"></div>
-            <div id="debug-info" style="font-size:0.8em; color:#666; margin-top:5px;"></div>
-        </div>
+        <h1>📚 Ma Collection (Multi-Sources)</h1>
         
         <div class="card">
-            <h3>Résultat</h3>
-            <p><strong>Titre :</strong> <span id="res-title">-</span></p>
-            <p><strong>Auteur :</strong> <span id="res-author">-</span></p>
-            <p><strong>Année :</strong> <span id="res-year">-</span></p>
+            <h3>Recherche de livre</h3>
+            <label>ISBN</label>
+            <div class="btn-row">
+                <input type="text" id="isbn" placeholder="Ex: 9782070408504" style="margin:0;">
+                <button class="search-btn" id="btn-search" onclick="App.searchISBN()">🔍 Chercher</button>
+            </div>
+            <div id="search-msg" class="status-msg"></div>
+            <div id="source-log" class="source-log"></div>
+
+            <label>Titre *</label>
+            <input type="text" id="item-title">
+            <label>Auteur</label>
+            <input type="text" id="item-author">
+            <label>Année</label>
+            <input type="number" id="item-year">
+            <label>Catégorie</label>
+            <select id="category">
+                <option value="Livre">Livre</option>
+                <option value="JdR">Jeu de Rôle</option>
+                <option value="Vinyle">Vinyle</option>
+            </select>
+
+            <button class="accent" onclick="App.addItem()">Ajouter à la collection</button>
+        </div>
+
+        <div class="card">
+            <h3>Ma Collection</h3>
+            <ul id="list" style="list-style:none; padding:0;"></ul>
         </div>
     </div>
 </div>
@@ -86,14 +79,14 @@ const App = {
     config: {
         supabaseUrl: 'https://xknjgdtnzxvbzavzksgr.supabase.co',
         supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbmpnZHRuenh2Ynphdnprc2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MjU1MjIsImV4cCI6MjEwNDUwMTUyMn0.a5fOexL2fXWUmBmQO2k3KfnyNnC313rtmM9xlwo2azA',
-        googleBooksBase: 'https://www.googleapis.com/books/v1'
+        // Sources multiples
+        apis: [
+            { name: "Google Books", url: (isbn) => `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}` },
+            { name: "OpenLibrary", url: (isbn) => `https://openlibrary.org/isbn/${isbn}.json` },
+            { name: "BnF (France)", url: (isbn) => `https://catalogue.bnf.fr/api/search?isbn=${isbn}&format=json` } 
+        ]
     },
-    state: {
-        user: null,
-        isSearching: false,
-        lastSearchTime: 0,
-        searchDelay: 2000 
-    },
+    state: { user: null, collection: [] },
     supabase: null,
 
     init: function() {
@@ -107,99 +100,127 @@ const App = {
             this.state.user = data.session.user;
             document.getElementById('auth-container').style.display = 'none';
             document.getElementById('app-content').style.display = 'block';
+            this.loadCollection();
         }
     },
 
     doLogin: async function() {
         const email = document.getElementById('auth-email').value;
         const pass = document.getElementById('auth-password').value;
-        const msg = document.getElementById('login-msg');
-        if (!email || !pass) { msg.textContent = "Champs requis"; return; }
-        
-        const btn = document.getElementById('btn-login');
-        btn.disabled = true;
         const { error } = await this.supabase.auth.signInWithPassword({ email, password: pass });
-        if (error) {
-            msg.textContent = "Erreur: " + error.message;
-            btn.disabled = false;
-        } else {
-            window.location.reload();
-        }
+        if (error) document.getElementById('login-msg').textContent = "Erreur: " + error.message;
+        else window.location.reload();
     },
 
-    doLogout: async function() {
-        await this.supabase.auth.signOut();
-        window.location.reload();
+    loadCollection: async function() {
+        if (!this.state.user) return;
+        const { data } = await this.supabase.from('collection').select('*').eq('user_id', this.state.user.id).order('dateAdded', { ascending: false });
+        this.state.collection = data || [];
+        const list = document.getElementById('list');
+        list.innerHTML = '';
+        this.state.collection.forEach(item => {
+            list.innerHTML += `<li style="border-bottom:1px solid #eee; padding:10px;"><strong>${item.title}</strong> - ${item.author || ''}</li>`;
+        });
     },
 
-    canSearch: function() {
-        const now = Date.now();
-        if (this.state.isSearching) return false;
-        const elapsed = now - this.state.lastSearchTime;
-        if (elapsed < this.state.searchDelay) {
-            const wait = Math.ceil((this.state.searchDelay - elapsed) / 1000);
-            document.getElementById('search-msg').textContent = `Attendez ${wait}s...`;
-            document.getElementById('search-msg').className = 'status-msg error-msg';
-            return false;
-        }
-        return true;
+    addItem: async function() {
+        const title = document.getElementById('item-title').value;
+        if (!title) return alert("Titre requis");
+        await this.supabase.from('collection').insert([{
+            title, author: document.getElementById('item-author').value,
+            year: document.getElementById('item-year').value,
+            category: document.getElementById('category').value,
+            isbn: document.getElementById('isbn').value,
+            dateAdded: new Date().toISOString(),
+            user_id: this.state.user.id
+        }]);
+        alert("Ajouté !");
+        this.loadCollection();
     },
 
+    // --- MOTEUR DE RECHERCHE MULTI-SOURCES ---
     searchISBN: async function() {
-        if (!this.canSearch()) return;
-
         const isbn = document.getElementById('isbn').value.replace(/[^0-9X]/g, '').toUpperCase();
-        const msgEl = document.getElementById('search-msg');
-        const debugEl = document.getElementById('debug-info');
+        const msg = document.getElementById('search-msg');
+        const log = document.getElementById('source-log');
         
-        this.state.isSearching = true;
-        this.state.lastSearchTime = Date.now();
-        
-        msgEl.textContent = "Recherche en cours...";
-        msgEl.className = 'status-msg';
-        msgEl.style.color = 'blue';
-        debugEl.textContent = `Appel API : ${this.config.googleBooksBase}/volumes?q=isbn:${isbn}`;
+        if (!isbn) return;
 
-        try {
-            // Ajout d'un timestamp pour éviter le cache navigateur
-            const url = `${this.config.googleBooksBase}/volumes?q=isbn:${isbn}&rand=${Math.random()}`;
-            
-            const res = await fetch(url);
-            
-            // Log détaillé pour débogage
-            console.log("Status HTTP:", res.status);
-            
-            if (res.status === 429) {
-                throw new Error("ERREUR 429 : Trop de requêtes. L'IP est toujours bloquée ou le compte Google est limité.");
-            }
-            if (!res.ok) throw new Error(`Erreur HTTP ${res.status}`);
-            
-            const data = await res.json();
-            
-            if (!data.totalItems || data.totalItems === 0) {
-                throw new Error("Aucun livre trouvé.");
-            }
+        msg.textContent = "Recherche en cours...";
+        msg.className = "status-msg info-msg";
+        log.textContent = "";
 
-            const info = data.items[0].volumeInfo;
-            
-            // Affichage résultat
-            document.getElementById('res-title').textContent = info.title || 'N/A';
-            document.getElementById('res-author').textContent = (info.authors || []).join(', ') || 'N/A';
-            document.getElementById('res-year').textContent = info.publishedDate ? info.publishedDate.substring(0,4) : 'N/A';
-            
-            msgEl.textContent = "SUCCÈS ! Livre trouvé.";
-            msgEl.style.color = 'green';
-            
-        } catch (e) {
-            console.error(e);
-            msgEl.textContent = e.message;
-            msgEl.style.color = 'red';
-            if(e.message.includes("429")) {
-                msgEl.innerHTML += "<br><strong>Conseil :</strong> Essayez une fenêtre de navigation PRIVÉE (Incognito) pour être sûr qu'aucun cookie ne perturbe le test.";
+        // On essaie chaque source l'une après l'autre
+        for (const api of this.config.apis) {
+            try {
+                log.textContent = `Tentative avec ${api.name}...`;
+                console.log(`Appel ${api.name}:`, api.url(isbn));
+
+                const res = await fetch(api.url(isbn));
+                
+                // Si 429, on passe immédiatement à la suivante sans erreur bloquante
+                if (res.status === 429) {
+                    console.warn(`${api.name} bloqué (429). Passage à la suite...`);
+                    continue; 
+                }
+                
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                const data = await res.json();
+                let book = null;
+
+                // Parsing spécifique selon l'API
+                if (api.name === "Google Books") {
+                    if (data.totalItems > 0) {
+                        const info = data.items[0].volumeInfo;
+                        book = {
+                            title: info.title,
+                            author: (info.authors || []).join(', '),
+                            year: info.publishedDate ? info.publishedDate.substring(0,4) : ''
+                        };
+                    }
+                } else if (api.name === "OpenLibrary") {
+                    if (data.title) {
+                        book = {
+                            title: data.title,
+                            author: data.authors ? (data.authors[0].name || data.authors[0]) : '',
+                            year: data.first_publish_date ? data.first_publish_date.substring(0,4) : ''
+                        };
+                    }
+                } else if (api.name === "BnF (France)") {
+                    // La BnF renvoie souvent un tableau ou un objet complexe
+                    if (data.document && data.document.length > 0) {
+                        const doc = data.document[0];
+                        book = {
+                            title: doc.title || doc.zoneTitle,
+                            author: doc.author || doc.zoneAuthor,
+                            year: doc.datePublication ? doc.datePublication.substring(0,4) : ''
+                        };
+                    }
+                }
+
+                if (book && book.title) {
+                    // SUCCÈS !
+                    msg.textContent = `Trouvé via ${api.name} !`;
+                    msg.className = "status-msg success-msg";
+                    log.textContent = "";
+                    
+                    document.getElementById('item-title').value = book.title;
+                    document.getElementById('item-author').value = book.author;
+                    document.getElementById('item-year').value = book.year;
+                    return; // On arrête la boucle
+                }
+
+            } catch (e) {
+                console.warn(`Erreur ${api.name}:`, e);
+                // On continue à la prochaine API
             }
-        } finally {
-            this.state.isSearching = false;
         }
+
+        // Si on arrive ici, aucune API n'a fonctionné
+        msg.textContent = "Aucun résultat trouvé sur aucune des sources.";
+        msg.className = "status-msg error-msg";
+        log.textContent = "Google, OpenLibrary et BnF ont été interrogés sans succès.";
     }
 };
 
