@@ -2,546 +2,329 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ma Collection Éthique</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Scan & Go - Version Robuste</title>
     <style>
-        :root { 
-            --primary: #2c3e50; 
-            --accent: #27ae60; 
-            --bg: #f4f7f6; 
-            --card-bg: #ffffff; 
-            --text: #333; 
-            --border: #ddd;
-            --tag-bg: #eee;
-            --tag-text: #333;
-        }
-
-        /* Mode Sombre */
-        body.dark-mode { 
-            --primary: #bdc3c7; 
-            --accent: #2ecc71; 
-            --bg: #1a1a1a; 
-            --card-bg: #2c2c2c; 
-            --text: #f0f0f0; 
-            --border: #444;
-            --tag-bg: #444;
-            --tag-text: #fff;
-        }
-
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background-color: var(--bg); 
-            color: var(--text); 
-            margin: 0; 
-            padding: 0; 
-            line-height: 1.6; 
-            transition: background-color 0.3s, color 0.3s;
-        }
-
-        .container { max-width: 800px; margin: 0 auto; padding: 15px; }
-        h1 { text-align: center; color: var(--primary); }
+        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --card-bg: #ffffff; --text: #333; --border: #ddd; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; padding: 10px; }
+        header { background: var(--primary); color: white; padding: 15px; text-align: center; border-radius: 0 0 10px 10px; margin-bottom: 20px; }
+        h1 { margin: 0; font-size: 1.2rem; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        label { font-weight: 600; font-size: 0.85rem; color: #7f8c8d; display: block; margin-top: 10px; }
+        input, select { width: 100%; padding: 15px; margin: 5px 0 15px; border: 2px solid var(--border); border-radius: 8px; box-sizing: border-box; font-size: 16px; background: #fafafa; }
+        input:focus { border-color: var(--primary); outline: none; }
+        .isbn-section input { font-family: monospace; font-size: 1.2rem; letter-spacing: 1px; border-color: var(--primary); background: #eef2f5; }
         
-        /* Auth Styles */
-        #auth-container { max-width: 400px; margin: 50px auto; background: var(--card-bg); padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
-        .auth-input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; background: var(--card-bg); color: var(--text); }
-        .auth-notice { font-size: 0.85em; color: #7f8c8d; margin-top: 15px; background: rgba(0,0,0,0.05); padding: 10px; border-radius: 4px; }
-        .status-msg { margin-top: 10px; font-size: 0.9em; min-height: 20px; }
-        .error-msg { color: #e74c3c; }
+        .btn-add { background-color: var(--accent); color: white; border: none; padding: 18px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; width: 100%; box-shadow: 0 4px 0 #219150; margin-top: 10px; }
+        .btn-add:active { transform: translateY(4px); box-shadow: none; }
+        .btn-add:disabled { background-color: #ccc; box-shadow: none; }
         
-        /* App Styles */
-        #app-content { display: none; }
-        .tabs { display: flex; overflow-x: auto; background: var(--card-bg); border-radius: 8px; margin-bottom: 15px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .tab-btn { flex: 1; padding: 12px; border: none; background: none; cursor: pointer; font-weight: 600; color: #bdc3c7; border-bottom: 3px solid transparent; }
-        .tab-btn.active { color: var(--primary); border-bottom-color: var(--accent); }
+        .status-msg { text-align: center; font-weight: bold; min-height: 24px; margin: 10px 0; font-size: 0.9rem; }
+        .success { color: var(--accent); }
+        .error { color: #e74c3c; }
+        .warning { color: #f39c12; }
         
-        .card { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        input, select { width: 100%; padding: 12px; margin: 5px 0 15px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; background: var(--card-bg); color: var(--text); }
-        .btn-row { display: flex; gap: 10px; margin-bottom: 10px; }
-        
-        button { background-color: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; }
-        button.secondary { background-color: #95a5a6; width: auto; }
-        button.accent { background-color: var(--accent); }
-        button.search-btn { background-color: #3498db; }
-        button.logout-btn { background-color: #e74c3c; width: auto; padding: 5px 15px; font-size: 0.9em; }
-        button:disabled { background-color: #ccc; cursor: not-allowed; }
-
-        #camera-container { position: relative; width: 100%; height: 250px; background: #000; display: none; margin: 10px 0; border-radius: 4px; overflow: hidden; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        #scan-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; height: 2px; background: red; }
-
-        .item-list { list-style: none; padding: 0; }
-        .item-card { background: var(--card-bg); border-left: 6px solid var(--primary); padding: 15px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .delete-btn { background: #e74c3c; width: auto; padding: 5px 10px; font-size: 0.8em; margin-left: 10px; }
-        .tag { background: var(--tag-bg); color: var(--tag-text); padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; margin-left: 5px; }
+        #list { list-style: none; padding: 0; }
+        .item-card { background: white; padding: 12px; margin-bottom: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); }
+        .delete-btn { background: #ffebee; color: #e74c3c; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; }
+        #auth-container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 12px; text-align: center; }
     </style>
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-<!-- ÉCRAN DE CONNEXION -->
 <div id="auth-container">
     <h2>Connexion</h2>
-    <input type="email" id="auth-email" class="auth-input" placeholder="Email">
-    <input type="password" id="auth-password" class="auth-input" placeholder="Mot de passe">
-    <button class="accent" id="btn-login" onclick="App.doLogin()">Se connecter</button>
-    <div id="login-msg" class="status-msg error-msg"></div>
-    <div class="auth-notice">🔒 Accès réservé. Inscriptions désactivées.</div>
+    <input type="email" id="auth-email" placeholder="Email">
+    <input type="password" id="auth-password" placeholder="Mot de passe">
+    <button class="btn-add" onclick="App.doLogin()">Entrer</button>
+    <div id="login-msg" class="status-msg error"></div>
 </div>
 
-<!-- APPLICATION -->
-<div id="app-content">
-    <div class="container">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-            <h1 style="margin:0;">📚 Ma Collection</h1>
-            <div style="display:flex; gap:10px;">
-                <button class="secondary" onclick="App.toggleTheme()">🌓 Thème</button>
-                <button class="logout-btn" onclick="App.doLogout()">Déconnexion</button>
-            </div>
-        </div>
+<div id="app-content" style="display:none;">
+    <header>
+        <h1>📚 Scan & Go (Mode Hors-Ligne Intelligent)</h1>
+        <div style="font-size:0.8rem; opacity:0.8;">Cache local activé • API BnF en priorité</div>
+    </header>
 
+    <div class="container">
         <div class="card">
-            <h3>Ajouter un élément</h3>
-            <label>Catégorie</label>
+            <label for="isbn">1. Scannez le code-barres</label>
+            <div class="isbn-section">
+                <input type="text" id="isbn" placeholder="ISBN (ex: 9782070408504)" autocomplete="off" inputmode="numeric">
+                <div style="font-size:0.75rem; color:#999; margin-top:-10px; margin-bottom:10px;">
+                    💡 Le clavier propose souvent un scanner 📷. Si internet est lent, le cache local prendra le relais.
+                </div>
+            </div>
+
+            <div id="search-status" class="status-msg"></div>
+
+            <label for="item-title">2. Titre</label>
+            <input type="text" id="item-title" placeholder="Titre du livre">
+            
+            <div style="display:flex; gap:10px;">
+                <div style="flex:2">
+                    <label for="item-author">Auteur</label>
+                    <input type="text" id="item-author" placeholder="Auteur">
+                </div>
+                <div style="flex:1">
+                    <label for="item-year">Année</label>
+                    <input type="number" id="item-year" placeholder="2024">
+                </div>
+            </div>
+
+            <label for="category">Catégorie</label>
             <select id="category">
-                <option value="Livre">Livre</option>
-                <option value="JdR">Jeu de Rôle</option>
-                <option value="Jeu de Société">Jeu de Société</option>
-                <option value="Vinyle">Vinyle</option>
+                <option value="Livre">📖 Livre</option>
+                <option value="JdR">🎲 JdR</option>
+                <option value="Jeu de Société">🧩 Jeu de Société</option>
+                <option value="Vinyle">💿 Vinyle</option>
+                <option value="BD">🎨 BD</option>
             </select>
 
-            <label>ISBN</label>
-            <div class="btn-row">
-                <input type="text" id="isbn" placeholder="Code-barres (ex: 9782070408504)" style="margin:0;">
-                <button class="secondary" onclick="App.startCamera()">📷</button>
-            </div>
-            <div id="camera-container"><video id="video"></video><div id="scan-overlay"></div></div>
-            <button class="search-btn" id="btn-search-isbn" onclick="App.searchISBN()">🔍 Chercher par ISBN</button>
-
-            <label>OU par Titre</label>
-            <div class="btn-row">
-                <input type="text" id="search-title" placeholder="Titre du livre" style="margin:0;">
-                <button class="search-btn" id="btn-search-title" style="width:auto;" onclick="App.searchTitle()">Go</button>
-            </div>
-            <div id="search-msg" class="status-msg"></div>
-
-            <label>Titre *</label>
-            <input type="text" id="item-title">
-            <label>Auteur</label>
-            <input type="text" id="item-author">
-            <label>Année</label>
-            <input type="number" id="item-year">
-
-            <button class="accent" id="btn-add" onclick="App.addItem()">Ajouter</button>
-        </div>
-
-        <div class="tabs">
-            <button class="tab-btn active" onclick="App.setFilter('All', this)">Tous</button>
-            <button class="tab-btn" onclick="App.setFilter('Livre', this)">Livres</button>
-            <button class="tab-btn" onclick="App.setFilter('JdR', this)">JdR</button>
-            <button class="tab-btn" onclick="App.setFilter('Jeu de Société', this)">Jeux</button>
-            <button class="tab-btn" onclick="App.setFilter('Vinyle', this)">Vinyles</button>
+            <button class="btn-add" id="btn-add" onclick="App.addItemAndNext()">
+                ✅ Valider & Suivant
+            </button>
         </div>
 
         <div class="card">
-            <input type="text" id="internal-search" placeholder="🔍 Filtrer la liste..." onkeyup="App.renderList()">
-            <ul id="list" class="item-list"></ul>
-            
-            <div style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap;">
-                <button class="secondary" onclick="App.exportCSV()" style="flex:1;">📥 Exporter CSV</button>
-                <button class="logout-btn" onclick="App.clearAll()" style="flex:1;">⚠️ Tout effacer</button>
-            </div>
+            <h3>Derniers ajouts</h3>
+            <ul id="list"></ul>
         </div>
     </div>
 </div>
 
 <script>
-/**
- * Application de Gestion de Collection - Version avec Sécurité Anti-Spam
- * Ajout d'un délai de 2 secondes entre les requêtes API
- */
 const App = {
     config: {
         supabaseUrl: 'https://xknjgdtnzxvbzavzksgr.supabase.co',
         supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbmpnZHRuenh2Ynphdnprc2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MjU1MjIsImV4cCI6MjEwNDUwMTUyMn0.a5fOexL2fXWUmBmQO2k3KfnyNnC313rtmM9xlwo2azA',
-        googleBooksBase: 'https://www.googleapis.com/books/v1'
+        // On essaie BnF en premier (souvent moins bloqué), puis OpenLibrary
+        apis: [
+            { 
+                name: "BnF", 
+                url: (isbn) => `https://catalogue.bnf.fr/api/search?isbn=${isbn}&format=json&max=1`,
+                parse: (data) => {
+                    if (data.document && data.document.length > 0) {
+                        const doc = data.document[0];
+                        return {
+                            title: doc.title || doc.zoneTitle,
+                            author: doc.author || doc.zoneAuthor,
+                            year: doc.datePublication ? doc.datePublication.substring(0,4) : ''
+                        };
+                    }
+                    return null;
+                }
+            },
+            { 
+                name: "OpenLibrary", 
+                url: (isbn) => `https://openlibrary.org/isbn/${isbn}.json`,
+                parse: (data) => {
+                    if (data.title) {
+                        return {
+                            title: data.title,
+                            author: data.authors ? (data.authors[0].name || data.authors[0]) : '',
+                            year: data.first_publish_date ? data.first_publish_date.substring(0,4) : ''
+                        };
+                    }
+                    return null;
+                }
+            }
+        ]
     },
-    state: {
+    state: { 
+        user: null, 
         collection: [],
-        filter: 'All',
-        scanner: null,
-        user: null,
-        lastSearchTime: 0,
-        searchDelay: 2000, // Délai de sécurité en millisecondes (2 secondes)
-        isSearching: false
+        localCache: JSON.parse(localStorage.getItem('bookCache') || '{}') 
     },
     supabase: null,
+    searchTimeout: null,
 
     init: function() {
         this.supabase = window.supabase.createClient(this.config.supabaseUrl, this.config.supabaseKey);
-        if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-mode');
         this.checkSession();
+        
+        const isbnInput = document.getElementById('isbn');
+        
+        // Recherche auto après 0.8s d'inactivité
+        isbnInput.addEventListener('input', () => {
+            clearTimeout(this.searchTimeout);
+            const val = isbnInput.value.replace(/[^0-9X]/g, '');
+            if (val.length >= 10) {
+                this.searchTimeout = setTimeout(() => this.searchISBN(val), 800);
+            }
+        });
+
+        isbnInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.searchISBN(isbnInput.value.replace(/[^0-9X]/g, ''));
+            }
+        });
     },
 
     checkSession: async function() {
         const { data } = await this.supabase.auth.getSession();
         if (data.session) {
             this.state.user = data.session.user;
-            this.showApp();
-        } else {
-            this.showLogin();
+            document.getElementById('auth-container').style.display = 'none';
+            document.getElementById('app-content').style.display = 'block';
+            this.loadCollection();
+            setTimeout(() => document.getElementById('isbn').focus(), 500);
         }
-    },
-
-    showLogin: function() {
-        document.getElementById('auth-container').style.display = 'block';
-        document.getElementById('app-content').style.display = 'none';
-        this.setStatus('login-msg', '');
-    },
-
-    showApp: function() {
-        document.getElementById('auth-container').style.display = 'none';
-        document.getElementById('app-content').style.display = 'block';
-        this.loadCollection();
-        this.setupRealtimeListener();
     },
 
     doLogin: async function() {
         const email = document.getElementById('auth-email').value;
         const pass = document.getElementById('auth-password').value;
-        const btn = document.getElementById('btn-login');
-        const msg = document.getElementById('login-msg');
-
-        if (!email || !pass) { this.setStatus('login-msg', "Remplissez tous les champs", true); return; }
-
-        this.toggleButton(btn, true, "Connexion...");
-        this.setStatus('login-msg', '');
-
         const { error } = await this.supabase.auth.signInWithPassword({ email, password: pass });
-
-        if (error) {
-            this.setStatus('login-msg', "Erreur: " + error.message, true);
-            this.toggleButton(btn, false, "Se connecter");
-        } else {
-            window.location.reload();
-        }
-    },
-
-    doLogout: async function() {
-        await this.supabase.auth.signOut();
-        this.state.collection = [];
-        this.state.user = null;
-        document.getElementById('list').innerHTML = '';
-        this.showLogin();
+        if (error) document.getElementById('login-msg').textContent = "Erreur: " + error.message;
+        else window.location.reload();
     },
 
     loadCollection: async function() {
         if (!this.state.user) return;
-        const { data, error } = await this.supabase
-            .from('collection')
-            .select('*')
-            .eq('user_id', this.state.user.id) 
-            .order('dateAdded', { ascending: false });
-
-        if (error) { console.error(error); alert("Erreur de chargement"); return; }
+        const { data } = await this.supabase.from('collection').select('*').eq('user_id', this.state.user.id).order('dateAdded', { ascending: false }).limit(10);
         this.state.collection = data || [];
-        this.renderList();
+        const list = document.getElementById('list');
+        list.innerHTML = '';
+        this.state.collection.forEach(item => {
+            list.innerHTML += `<li class="item-card">
+                <div style="flex:1">
+                    <strong>${item.title}</strong><br>
+                    <small style="color:#7f8c8d">${item.author || ''} • ${item.category}</small>
+                </div>
+                <button class="delete-btn" onclick="App.deleteItem(${item.id})">✕</button>
+            </li>`;
+        });
     },
 
-    setupRealtimeListener: function() {
-        this.supabase.channel('changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'collection' }, () => {
-                this.loadCollection();
-            })
-            .subscribe();
-    },
-
-    addItem: async function() {
+    addItemAndNext: async function() {
         const title = document.getElementById('item-title').value;
-        if (!title) { alert("Titre requis"); return; }
+        const isbn = document.getElementById('isbn').value.replace(/[^0-9X]/g, '').toUpperCase();
+        
+        if (!title) {
+            alert("Veuillez entrer un titre.");
+            document.getElementById('isbn').focus();
+            return;
+        }
+
+        // SAUVEGARDE DANS LE CACHE LOCAL POUR LA PROCHAINE FOIS
+        if (isbn) {
+            this.state.localCache[isbn] = {
+                title: title,
+                author: document.getElementById('item-author').value,
+                year: document.getElementById('item-year').value
+            };
+            localStorage.setItem('bookCache', JSON.stringify(this.state.localCache));
+        }
 
         const btn = document.getElementById('btn-add');
-        this.toggleButton(btn, true);
+        btn.disabled = true;
+        btn.textContent = "Ajout...";
 
         const newItem = {
             title: title,
             author: document.getElementById('item-author').value,
             year: document.getElementById('item-year').value,
             category: document.getElementById('category').value,
-            isbn: document.getElementById('isbn').value,
+            isbn: isbn,
             dateAdded: new Date().toISOString(),
             user_id: this.state.user.id
         };
 
         const { error } = await this.supabase.from('collection').insert([newItem]);
 
-        if (error) { alert("Erreur: " + error.message); }
-        else {
-            this.resetForm();
-            this.setStatus('search-msg', "Ajouté !", false, "green");
-            setTimeout(() => this.setStatus('search-msg', ""), 2000);
+        if (error) { 
+            alert("Erreur: " + error.message); 
+        } else {
+            this.resetFormForNextScan();
+            this.loadCollection();
         }
-        this.toggleButton(btn, false);
+        
+        btn.disabled = false;
+        btn.textContent = "✅ Valider & Suivant";
     },
 
-    deleteItem: async function(id) {
-        if(confirm("Supprimer cet élément ?")) {
-            await this.supabase.from('collection').delete().eq('id', id);
-        }
-    },
-
-    clearAll: async function() {
-        if(confirm("ATTENTION: Voulez-vous vraiment TOUT effacer ?")) {
-            await this.supabase.from('collection').delete().neq('id', 0);
-        }
-    },
-
-    renderList: function() {
-        const list = document.getElementById('list');
-        const search = document.getElementById('internal-search').value.toLowerCase();
-        list.innerHTML = '';
-
-        const filtered = this.state.collection.filter(item => {
-            const matchCat = this.state.filter === 'All' || item.category === this.state.filter;
-            const matchSearch = (item.title || '').toLowerCase().includes(search) || 
-                                (item.author || '').toLowerCase().includes(search);
-            return matchCat && matchSearch;
-        });
-
-        if (filtered.length === 0) {
-            list.innerHTML = '<li style="text-align:center; color:#777; padding:20px;">Aucun élément trouvé.</li>';
-            return;
-        }
-
-        filtered.forEach(item => {
-            const li = document.createElement('li');
-            li.className = 'item-card';
-            li.innerHTML = `
-                <div>
-                    <strong>${this.escapeHtml(item.title)}</strong> <span class="tag">${this.escapeHtml(item.category)}</span><br>
-                    <small>${this.escapeHtml(item.author || '')} ${item.year ? '('+item.year+')' : ''}</small>
-                </div>
-                <button class="delete-btn" onclick="App.deleteItem(${item.id})">X</button>
-            `;
-            list.appendChild(li);
-        });
-    },
-
-    setFilter: function(cat, btn) {
-        this.state.filter = cat;
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.renderList();
-    },
-
-    resetForm: function() {
+    resetFormForNextScan: function() {
         document.getElementById('item-title').value = '';
         document.getElementById('item-author').value = '';
         document.getElementById('item-year').value = '';
         document.getElementById('isbn').value = '';
+        document.getElementById('search-status').textContent = 'Ajouté ! Prêt pour le suivant.';
+        document.getElementById('search-status').className = 'status-msg success';
+        document.getElementById('isbn').focus();
+        setTimeout(() => document.getElementById('search-status').textContent = '', 2000);
     },
 
-    setStatus: function(elementId, msg, isError = false, color = '') {
-        const el = document.getElementById(elementId);
-        el.textContent = msg;
-        el.className = 'status-msg' + (isError ? ' error-msg' : '');
-        if (color) el.style.color = color;
-    },
-
-    toggleButton: function(btn, disabled, text = null) {
-        btn.disabled = disabled;
-        if (text) btn.textContent = text;
-    },
-
-    escapeHtml: function(text) {
-        if (!text) return '';
-        return text.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    },
-
-    // Vérification de sécurité avant recherche
-    canSearch: function() {
-        const now = Date.now();
-        if (this.state.isSearching) {
-            console.log("Recherche déjà en cours...");
-            return false;
-        }
-        if (now - this.state.lastSearchTime < this.state.searchDelay) {
-            const waitTime = Math.ceil((this.state.searchDelay - (now - this.state.lastSearchTime)) / 1000);
-            console.log(`Trop rapide ! Attendez encore ${waitTime}s`);
-            this.setStatus('search-msg', `Veuillez attendre ${waitType}s avant la prochaine recherche.`, true, "orange");
-            return false;
-        }
-        return true;
-    },
-
-    // --- RECHERCHE ISBN AVEC GOOGLE BOOKS + SÉCURITÉ ---
-    searchISBN: async function() {
-        if (!this.canSearch()) return;
-
-        let isbn = document.getElementById('isbn').value.replace(/[^0-9X]/g, '').toUpperCase();
-        const msg = document.getElementById('search-msg');
-        
-        if (!isbn) { this.setStatus('search-msg', "ISBN requis", true); return; }
-        
-        // Verrouillage
-        this.state.isSearching = true;
-        this.state.lastSearchTime = Date.now();
-        
-        console.log("Recherche ISBN Google Books :", isbn);
-        this.setStatus('search-msg', "Recherche en cours...");
-
-        try {
-            const url = `${this.config.googleBooksBase}/volumes?q=isbn:${isbn}`;
-            console.log("Appel API :", url);
-            
-            const res = await fetch(url);
-            
-            if (res.status === 429) {
-                throw new Error("Trop de requêtes. Veuillez attendre 1 heure.");
-            }
-            if (!res.ok) throw new Error("Erreur de connexion à Google Books");
-            
-            const data = await res.json();
-            
-            if (!data.totalItems || data.totalItems === 0) {
-                throw new Error("Aucun livre trouvé avec cet ISBN.");
-            }
-
-            const volume = data.items[0];
-            const info = volume.volumeInfo;
-
-            document.getElementById('item-title').value = info.title || '';
-            
-            if (info.publishedDate) {
-                const yearMatch = info.publishedDate.match(/^\d{4}/);
-                if (yearMatch) {
-                    document.getElementById('item-year').value = yearMatch[0];
-                }
-            }
-            
-            if (info.authors && info.authors.length > 0) {
-                document.getElementById('item-author').value = info.authors.join(', ');
-            }
-            
-            this.setStatus('search-msg', "Trouvé !", false, "green");
-        } catch (e) {
-            console.error(e);
-            this.setStatus('search-msg', e.message.includes("Trop de requêtes") ? e.message : "Non trouvé. Vérifiez l'ISBN.", true, "red");
-        } finally {
-            // Déverrouillage
-            this.state.isSearching = false;
+    deleteItem: async function(id) {
+        if(confirm("Supprimer ?")) {
+            await this.supabase.from('collection').delete().eq('id', id);
+            this.loadCollection();
         }
     },
 
-    // --- RECHERCHE TITRE AVEC GOOGLE BOOKS + SÉCURITÉ ---
-    searchTitle: async function() {
-        if (!this.canSearch()) return;
-
-        const q = document.getElementById('search-title').value.trim();
-        const msg = document.getElementById('search-msg');
-        if (!q) { this.setStatus('search-msg', "Veuillez entrer un titre.", true); return; }
+    searchISBN: async function(isbn) {
+        if (!isbn || isbn.length < 10) return;
         
-        // Verrouillage
-        this.state.isSearching = true;
-        this.state.lastSearchTime = Date.now();
-
-        this.setStatus('search-msg', "Recherche en cours...");
-        console.log("Recherche titre Google Books :", q);
+        const status = document.getElementById('search-status');
         
-        try {
-            const url = `${this.config.googleBooksBase}/volumes?q=intitle:${encodeURIComponent(q)}&maxResults=5`;
-            console.log("Appel API :", url);
-
-            const res = await fetch(url);
-            if (res.status === 429) throw new Error("Trop de requêtes. Veuillez attendre 1 heure.");
-            if (!res.ok) throw new Error("Erreur de connexion");
-            
-            const data = await res.json();
-            
-            if (!data.totalItems || data.totalItems === 0) {
-                throw new Error("Aucun résultat trouvé.");
-            }
-
-            const volume = data.items[0];
-            const info = volume.volumeInfo;
-            console.log("Résultat trouvé :", info);
-
-            document.getElementById('item-title').value = info.title || '';
-            
-            if (info.authors && info.authors.length > 0) {
-                document.getElementById('item-author').value = info.authors.join(', ');
-            }
-            
-            if (info.publishedDate) {
-                const yearMatch = info.publishedDate.match(/^\d{4}/);
-                if (yearMatch) {
-                    document.getElementById('item-year').value = yearMatch[0];
-                }
-            }
-            
-            this.setStatus('search-msg', "Trouvé !", false, "green");
-        } catch (e) {
-            console.error(e);
-            this.setStatus('search-msg', e.message.includes("Trop de requêtes") ? e.message : "Aucun résultat.", true, "red");
-        } finally {
-            // Déverrouillage
-            this.state.isSearching = false;
-        }
-    },
-
-    startCamera: function() {
-        const container = document.getElementById('camera-container');
-        if (container.style.display === 'block') {
-            if (this.state.scanner) this.state.scanner.stop();
-            container.style.display = 'none';
+        // 1. VÉRIFIER LE CACHE LOCAL D'ABORD (Instantané & Hors-ligne)
+        if (this.state.localCache[isbn]) {
+            const cached = this.state.localCache[isbn];
+            document.getElementById('item-title').value = cached.title;
+            document.getElementById('item-author').value = cached.author || '';
+            document.getElementById('item-year').value = cached.year || '';
+            status.textContent = "🟢 Retrouvé dans votre mémoire locale !";
+            status.className = "status-msg success";
+            document.getElementById('btn-add').focus();
             return;
         }
-        
-        container.style.display = 'block';
-        this.state.scanner = new window.Html5Qrcode("camera-container");
-        
-        this.state.scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
-            const cleanCode = text.replace(/[^0-9X]/g, '').toUpperCase();
-            document.getElementById('isbn').value = cleanCode;
-            this.state.scanner.stop();
-            container.style.display = 'none';
-            // La recherche se lance ici, elle sera protégée par canSearch()
-            this.searchISBN();
-        }).catch(err => {
-            console.error(err);
-            alert("Impossible d'accéder à la caméra. Vérifiez les permissions.");
-            container.style.display = 'none';
-        });
-    },
-    
-    toggleTheme: function() {
-        document.body.classList.toggle('dark-mode');
-        const isDark = document.body.classList.contains('dark-mode');
-        localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    },
 
-    exportCSV: function() {
-        if (this.state.collection.length === 0) { alert("Rien à exporter"); return; }
-        
-        const headers = ["Titre", "Auteur", "Année", "Catégorie", "ISBN"];
-        const rows = this.state.collection.map(item => [
-            `"${(item.title || '').replace(/"/g, '""')}"`,
-            `"${(item.author || '').replace(/"/g, '""')}"`,
-            item.year || '',
-            item.category,
-            item.isbn || ''
-        ]);
+        // 2. SI PAS DANS LE CACHE, ESSAYER LES API
+        status.textContent = "Recherche en ligne...";
+        status.className = "status-msg warning";
 
-        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
+        for (const api of this.config.apis) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // Timeout 5s
+                
+                const res = await fetch(api.url(isbn), { signal: controller.signal });
+                clearTimeout(timeoutId);
+                
+                if (res.status === 429 || res.status === 403) continue; // Skip si bloqué
+                if (!res.ok) throw new Error();
+                
+                const data = await res.json();
+                const book = api.parse(data);
+
+                if (book && book.title) {
+                    // SUCCÈS API
+                    document.getElementById('item-title').value = book.title;
+                    document.getElementById('item-author').value = book.author;
+                    document.getElementById('item-year').value = book.year;
+                    
+                    // Sauvegarde automatique dans le cache pour la prochaine fois
+                    this.state.localCache[isbn] = book;
+                    localStorage.setItem('bookCache', JSON.stringify(this.state.localCache));
+                    
+                    status.textContent = `🟢 Trouvé via ${api.name} (sauvegardé en mémoire)`;
+                    status.className = "status-msg success";
+                    document.getElementById('btn-add').focus();
+                    return;
+                }
+            } catch (e) {
+                console.warn(`API ${api.name} échouée`, e);
+                continue;
+            }
+        }
         
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `ma_collection_${new Date().toISOString().slice(0,10)}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // 3. ÉCHEC TOTAL
+        status.textContent = "⚠️ Internet indisponible ou livre inconnu. Saisie manuelle (sauvegardé pour la prochaine fois).";
+        status.className = "status-msg error";
+        document.getElementById('item-title').focus();
     }
 };
 
