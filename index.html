@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Scan & Go - Version BnF Optimisée</title>
+    <title>Scan & Go - Mode Hors-Ligne</title>
     <style>
         :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --card-bg: #ffffff; --text: #333; --border: #ddd; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; line-height: 1.6; }
         .container { max-width: 600px; margin: 0 auto; padding: 10px; }
         header { background: var(--primary); color: white; padding: 15px; text-align: center; border-radius: 0 0 10px 10px; margin-bottom: 20px; }
         h1 { margin: 0; font-size: 1.2rem; }
+        .badge { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; display: inline-block; margin-top: 5px; }
+        
         .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
         label { font-weight: 600; font-size: 0.85rem; color: #7f8c8d; display: block; margin-top: 10px; }
         input, select { width: 100%; padding: 15px; margin: 5px 0 15px; border: 2px solid var(--border); border-radius: 8px; box-sizing: border-box; font-size: 16px; background: #fafafa; }
-        input:focus { border-color: var(--primary); outline: none; }
+        input:focus { border-color: var(--primary); outline: none; background: #fff; }
         .isbn-section input { font-family: monospace; font-size: 1.2rem; letter-spacing: 1px; border-color: var(--primary); background: #eef2f5; }
         
         .btn-add { background-color: var(--accent); color: white; border: none; padding: 18px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; width: 100%; box-shadow: 0 4px 0 #219150; margin-top: 10px; }
@@ -22,15 +24,14 @@
         
         .status-msg { text-align: center; font-weight: bold; min-height: 24px; margin: 10px 0; font-size: 0.9rem; }
         .success { color: var(--accent); }
-        .error { color: #e74c3c; }
-        .warning { color: #f39c12; }
-        
-        #debug-info { font-size: 0.75rem; color: #666; background: #f0f0f0; padding: 10px; border-radius: 4px; margin-top: 10px; display: none; word-break: break-all; border: 1px solid #ddd; }
+        .info { color: #2980b9; }
         
         #list { list-style: none; padding: 0; }
         .item-card { background: white; padding: 12px; margin-bottom: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); }
         .delete-btn { background: #ffebee; color: #e74c3c; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; }
         #auth-container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 12px; text-align: center; }
+        
+        .cache-stats { font-size: 0.8rem; color: #7f8c8d; text-align: center; margin-top: 10px; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -41,13 +42,14 @@
     <input type="email" id="auth-email" placeholder="Email">
     <input type="password" id="auth-password" placeholder="Mot de passe">
     <button class="btn-add" onclick="App.doLogin()">Entrer</button>
-    <div id="login-msg" class="status-msg error"></div>
+    <div id="login-msg" class="status-msg" style="color:red"></div>
 </div>
 
 <div id="app-content" style="display:none;">
     <header>
-        <h1>📚 Scan & Go (BnF Direct)</h1>
-        <div style="font-size:0.8rem; opacity:0.8;">Source : Bibliothèque nationale de France</div>
+        <h1>📚 Scan & Go</h1>
+        <div class="badge">Mode Hors-Ligne Actif</div>
+        <div class="cache-stats" id="cache-count">Mémoire locale : 0 livres</div>
     </header>
 
     <div class="container">
@@ -55,12 +57,12 @@
             <label for="isbn">1. Scannez le code-barres</label>
             <div class="isbn-section">
                 <input type="text" id="isbn" placeholder="ISBN (ex: 9782070408504)" autocomplete="off" inputmode="numeric">
+                <div style="font-size:0.75rem; color:#27ae60; margin-top:-10px; margin-bottom:10px; font-weight:bold;" id="auto-category-hint"></div>
             </div>
 
             <div id="search-status" class="status-msg"></div>
-            <div id="debug-info"></div>
 
-            <label for="item-title">2. Titre</label>
+            <label for="item-title">2. Titre (à saisir la 1ère fois)</label>
             <input type="text" id="item-title" placeholder="Titre du livre">
             
             <div style="display:flex; gap:10px;">
@@ -77,10 +79,11 @@
             <label for="category">Catégorie</label>
             <select id="category">
                 <option value="Livre">📖 Livre</option>
-                <option value="JdR">🎲 JdR</option>
+                <option value="JdR">🎲 Jeu de Rôle</option>
                 <option value="Jeu de Société">🧩 Jeu de Société</option>
                 <option value="Vinyle">💿 Vinyle</option>
-                <option value="BD">🎨 BD</option>
+                <option value="BD">🎨 Bande Dessinée</option>
+                <option value="Manga">🇯🇵 Manga</option>
             </select>
 
             <button class="btn-add" id="btn-add" onclick="App.addItemAndNext()">
@@ -99,53 +102,12 @@
 const App = {
     config: {
         supabaseUrl: 'https://xknjgdtnzxvbzavzksgr.supabase.co',
-        supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbmpnZHRuenh2Ynphdnprc2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MjU1MjIsImV4cCI6MjEwNDUwMTUyMn0.a5fOexL2fXWUmBmQO2k3KfnyNnC313rtmM9xlwo2azA',
-        // UNE SEULE API : BnF (La plus fiable pour les noms d'auteurs)
-        api: { 
-            name: "BnF", 
-            url: (isbn) => `https://catalogue.bnf.fr/api/search?isbn=${isbn}&format=json&max=1`,
-            parse: (data) => {
-                if (!data.document || data.document.length === 0) return null;
-                const doc = data.document[0];
-                
-                // Fonction de nettoyage spécifique BnF
-                const cleanField = (field) => {
-                    if (!field) return '';
-                    // Si c'est une chaîne, on retourne tel quel
-                    if (typeof field === 'string') return field.trim();
-                    
-                    // Si c'est un tableau (cas fréquent pour les auteurs)
-                    if (Array.isArray(field)) {
-                        return field.map(item => {
-                            // Si l'élément est une chaîne
-                            if (typeof item === 'string') return item;
-                            // Si c'est un objet, on cherche la clé '_id' ou 'name' ou 'value'
-                            if (typeof item === 'object') {
-                                return item._id || item.name || item.value || item['@value'] || JSON.stringify(item);
-                            }
-                            return String(item);
-                        }).filter(t => t && t.length > 0).join(', ');
-                    }
-                    
-                    // Si c'est un objet unique
-                    if (typeof field === 'object') {
-                        return field._id || field.name || field.value || field['@value'] || JSON.stringify(field);
-                    }
-                    
-                    return String(field);
-                };
-
-                return {
-                    title: cleanField(doc.title) || cleanField(doc.zoneTitle) || 'Titre inconnu',
-                    author: cleanField(doc.author) || cleanField(doc.zoneAuthor) || '',
-                    year: doc.datePublication ? String(doc.datePublication).substring(0,4) : ''
-                };
-            }
-        }
+        supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbmpnZHRuenh2Ynphdnprc2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MjU1MjIsImV4cCI6MjEwNDUwMTUyMn0.a5fOexL2fXWUmBmQO2k3KfnyNnC313rtmM9xlwo2azA'
     },
     state: { 
         user: null, 
         collection: [],
+        // Chargement du cache local
         localCache: JSON.parse(localStorage.getItem('bookCache') || '{}') 
     },
     supabase: null,
@@ -153,22 +115,45 @@ const App = {
 
     init: function() {
         this.supabase = window.supabase.createClient(this.config.supabaseUrl, this.config.supabaseKey);
+        this.updateCacheCount();
         this.checkSession();
         
         const isbnInput = document.getElementById('isbn');
-        isbnInput.addEventListener('input', () => {
+        
+        // Détection automatique de catégorie suggérée
+        isbnInput.addEventListener('input', (e) => {
+            const val = e.target.value;
+            const hint = document.getElementById('auto-category-hint');
+            
+            // Logique simple de pré-catégorisation par préfixe
+            if (val.startsWith('9782') || val.startsWith('97910')) {
+                hint.textContent = "Suggestion : 📖 Livre francophone détecté";
+            } else if (val.startsWith('9781')) {
+                hint.textContent = "Suggestion : 🇬🇧 Livre anglophone détecté";
+            } else if (val.startsWith('3760') || val.startsWith('400')) {
+                hint.textContent = "Suggestion : 🧩 Jeu de Société détecté";
+            } else {
+                hint.textContent = "";
+            }
+
             clearTimeout(this.searchTimeout);
-            const val = isbnInput.value.replace(/[^0-9X]/g, '');
-            if (val.length >= 10) {
-                this.searchTimeout = setTimeout(() => this.searchISBN(val), 800);
+            const cleanVal = val.replace(/[^0-9X]/g, '');
+            if (cleanVal.length >= 10) {
+                this.searchTimeout = setTimeout(() => this.checkCache(cleanVal), 500);
             }
         });
+
         isbnInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                this.searchISBN(isbnInput.value.replace(/[^0-9X]/g, ''));
+                this.checkCache(isbnInput.value.replace(/[^0-9X]/g, ''));
             }
         });
+    },
+
+    updateCacheCount: function() {
+        const count = Object.keys(this.state.localCache).length;
+        document.getElementById('cache-count').textContent = `Mémoire locale : ${count} livres connus`;
     },
 
     checkSession: async function() {
@@ -217,13 +202,16 @@ const App = {
             return;
         }
 
+        // SAUVEGARDE DANS LE CACHE LOCAL (Cœur du système hors-ligne)
         if (isbn) {
             this.state.localCache[isbn] = {
                 title: title,
                 author: document.getElementById('item-author').value,
-                year: document.getElementById('item-year').value
+                year: document.getElementById('item-year').value,
+                category: document.getElementById('category').value
             };
             localStorage.setItem('bookCache', JSON.stringify(this.state.localCache));
+            this.updateCacheCount();
         }
 
         const btn = document.getElementById('btn-add');
@@ -258,11 +246,11 @@ const App = {
         document.getElementById('item-author').value = '';
         document.getElementById('item-year').value = '';
         document.getElementById('isbn').value = '';
+        document.getElementById('auto-category-hint').textContent = '';
         document.getElementById('search-status').textContent = 'Ajouté ! Prêt pour le suivant.';
         document.getElementById('search-status').className = 'status-msg success';
-        document.getElementById('debug-info').style.display = 'none';
         document.getElementById('isbn').focus();
-        setTimeout(() => document.getElementById('search-status').textContent = '', 2000);
+        setTimeout(() => document.getElementById('search-status').textContent = '', 1500);
     },
 
     deleteItem: async function(id) {
@@ -272,73 +260,23 @@ const App = {
         }
     },
 
-    searchISBN: async function(isbn) {
-        if (!isbn || isbn.length < 10) return;
-        
+    // Fonction de vérification UNIQUEMENT dans le cache local
+    checkCache: function(isbn) {
         const status = document.getElementById('search-status');
-        const debug = document.getElementById('debug-info');
-        debug.style.display = 'block';
-        debug.textContent = "Interrogation BnF...";
-
-        // 1. Cache local (Priorité absolue)
+        
         if (this.state.localCache[isbn]) {
             const cached = this.state.localCache[isbn];
             document.getElementById('item-title').value = cached.title;
             document.getElementById('item-author').value = cached.author || '';
             document.getElementById('item-year').value = cached.year || '';
-            status.textContent = "🟢 Retrouvé dans votre mémoire locale !";
+            if (cached.category) document.getElementById('category').value = cached.category;
+            
+            status.textContent = "🟢 Retrouvé dans votre mémoire ! (Hors-ligne)";
             status.className = "status-msg success";
-            debug.textContent = "Source: Cache Local (Hors-ligne)";
             document.getElementById('btn-add').focus();
-            return;
-        }
-
-        // 2. API BnF
-        status.textContent = "Recherche BnF en cours...";
-        status.className = "status-msg warning";
-
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s max
-            
-            const res = await fetch(this.config.api.url(isbn), { signal: controller.signal });
-            clearTimeout(timeoutId);
-            
-            if (res.status === 429 || res.status === 403) {
-                throw new Error("Accès bloqué temporairement");
-            }
-            if (!res.ok) throw new Error("Erreur réseau");
-            
-            const data = await res.json();
-            
-            // Debug : afficher l'auteur brut pour vérification
-            const rawAuthor = (data.document && data.document[0]) ? (data.document[0].author || data.document[0].zoneAuthor) : 'N/A';
-            debug.textContent = `Brut BnF: ${JSON.stringify(rawAuthor)}`;
-
-            const book = this.config.api.parse(data);
-
-            if (book && book.title && book.title !== 'Titre inconnu') {
-                document.getElementById('item-title').value = book.title;
-                document.getElementById('item-author').value = book.author;
-                document.getElementById('item-year').value = book.year;
-                
-                // Sauvegarde dans le cache
-                this.state.localCache[isbn] = book;
-                localStorage.setItem('bookCache', JSON.stringify(this.state.localCache));
-                
-                status.textContent = `🟢 Trouvé (BnF)`;
-                status.className = "status-msg success";
-                debug.textContent += `\nNettoyé: ${book.author}`;
-                document.getElementById('btn-add').focus();
-                return;
-            } else {
-                throw new Error("Livre non trouvé dans la BnF");
-            }
-        } catch (e) {
-            console.warn(e);
-            status.textContent = "⚠️ Non trouvé ou erreur réseau. Saisie manuelle.";
-            status.className = "status-msg error";
-            debug.textContent = `Erreur: ${e.message}. Mode manuel activé.`;
+        } else {
+            status.textContent = "⚪ Nouveau livre. Veuillez saisir les infos (elles seront mémorisées).";
+            status.className = "status-msg info";
             document.getElementById('item-title').focus();
         }
     }
