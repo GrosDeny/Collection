@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Scan & Go - Correction Auteur</title>
+    <title>Scan & Go - Fix Auteur Définitif</title>
     <style>
         :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --card-bg: #ffffff; --text: #333; --border: #ddd; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; line-height: 1.6; }
@@ -25,6 +25,8 @@
         .error { color: #e74c3c; }
         .warning { color: #f39c12; }
         
+        #debug-info { font-size: 0.75rem; color: #999; background: #f9f9f9; padding: 10px; border-radius: 4px; margin-top: 10px; display: none; word-break: break-all; }
+        
         #list { list-style: none; padding: 0; }
         .item-card { background: white; padding: 12px; margin-bottom: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); }
         .delete-btn { background: #ffebee; color: #e74c3c; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; }
@@ -44,8 +46,8 @@
 
 <div id="app-content" style="display:none;">
     <header>
-        <h1>📚 Scan & Go (Corrigé)</h1>
-        <div style="font-size:0.8rem; opacity:0.8;">Cache local activé • Gestion auteur améliorée</div>
+        <h1>📚 Scan & Go (Fix Auteur)</h1>
+        <div style="font-size:0.8rem; opacity:0.8;">Nettoyage automatique des objets auteurs</div>
     </header>
 
     <div class="container">
@@ -53,12 +55,10 @@
             <label for="isbn">1. Scannez le code-barres</label>
             <div class="isbn-section">
                 <input type="text" id="isbn" placeholder="ISBN (ex: 9782070408504)" autocomplete="off" inputmode="numeric">
-                <div style="font-size:0.75rem; color:#999; margin-top:-10px; margin-bottom:10px;">
-                    💡 Le clavier propose souvent un scanner 📷.
-                </div>
             </div>
 
             <div id="search-status" class="status-msg"></div>
+            <div id="debug-info"></div>
 
             <label for="item-title">2. Titre</label>
             <input type="text" id="item-title" placeholder="Titre du livre">
@@ -105,54 +105,65 @@ const App = {
                 name: "BnF", 
                 url: (isbn) => `https://catalogue.bnf.fr/api/search?isbn=${isbn}&format=json&max=1`,
                 parse: (data) => {
-                    if (data.document && data.document.length > 0) {
-                        const doc = data.document[0];
-                        // CORRECTION ICI : Gestion robuste des auteurs BnF
-                        let authorName = '';
-                        if (doc.author) {
-                            if (typeof doc.author === 'string') {
-                                authorName = doc.author;
-                            } else if (Array.isArray(doc.author)) {
-                                authorName = doc.author.join(', ');
-                            } else if (doc.author.name) {
-                                authorName = doc.author.name;
-                            } else {
-                                authorName = JSON.stringify(doc.author); // Fallback
-                            }
+                    if (!data.document || data.document.length === 0) return null;
+                    const doc = data.document[0];
+                    
+                    // FONCTION DE NETTOYAGE ROBUSTE
+                    const cleanAuthor = (raw) => {
+                        if (!raw) return '';
+                        if (typeof raw === 'string') return raw;
+                        if (Array.isArray(raw)) {
+                            return raw.map(item => {
+                                if (typeof item === 'string') return item;
+                                if (item.name) return item.name;
+                                if (item._id) return item._id; // Parfois l'ID est le nom chez BnF
+                                return JSON.stringify(item);
+                            }).join(', ');
                         }
-                        return {
-                            title: doc.title || doc.zoneTitle || '',
-                            author: authorName,
-                            year: doc.datePublication ? doc.datePublication.substring(0,4) : ''
-                        };
-                    }
-                    return null;
+                        if (typeof raw === 'object') {
+                            if (raw.name) return raw.name;
+                            if (raw._id) return raw._id;
+                            // Si c'est un objet complexe, on essaie de trouver une clé texte
+                            for (let key in raw) {
+                                if (typeof raw[key] === 'string' && raw[key].length > 2) return raw[key];
+                            }
+                            return JSON.stringify(raw);
+                        }
+                        return String(raw);
+                    };
+
+                    return {
+                        title: doc.title || doc.zoneTitle || 'Titre inconnu',
+                        author: cleanAuthor(doc.author) || cleanAuthor(doc.zoneAuthor) || '',
+                        year: doc.datePublication ? String(doc.datePublication).substring(0,4) : ''
+                    };
                 }
             },
             { 
                 name: "OpenLibrary", 
                 url: (isbn) => `https://openlibrary.org/isbn/${isbn}.json`,
                 parse: (data) => {
-                    if (data.title) {
-                        // CORRECTION ICI : Gestion robuste des auteurs OpenLibrary
-                        let authorName = '';
-                        if (data.authors) {
-                            if (Array.isArray(data.authors)) {
-                                // OpenLibrary renvoie souvent [{name: "Nom"}, {name: "Prénom"}]
-                                authorName = data.authors.map(a => {
-                                    return (typeof a === 'object' && a.name) ? a.name : String(a);
-                                }).join(', ');
-                            } else if (typeof data.authors === 'string') {
-                                authorName = data.authors;
-                            }
+                    if (!data.title) return null;
+                    
+                    const cleanAuthor = (raw) => {
+                        if (!raw) return '';
+                        if (typeof raw === 'string') return raw;
+                        if (Array.isArray(raw)) {
+                            return raw.map(item => {
+                                if (typeof item === 'string') return item;
+                                if (item.name) return item.name;
+                                if (item.key) return item.key; 
+                                return JSON.stringify(item);
+                            }).join(', ');
                         }
-                        return {
-                            title: data.title,
-                            author: authorName,
-                            year: data.first_publish_date ? data.first_publish_date.substring(0,4) : ''
-                        };
-                    }
-                    return null;
+                        return String(raw);
+                    };
+
+                    return {
+                        title: data.title,
+                        author: cleanAuthor(data.authors),
+                        year: data.first_publish_date ? String(data.first_publish_date).substring(0,4) : ''
+                    };
                 }
             }
         ]
@@ -170,7 +181,6 @@ const App = {
         this.checkSession();
         
         const isbnInput = document.getElementById('isbn');
-        
         isbnInput.addEventListener('input', () => {
             clearTimeout(this.searchTimeout);
             const val = isbnInput.value.replace(/[^0-9X]/g, '');
@@ -178,7 +188,6 @@ const App = {
                 this.searchTimeout = setTimeout(() => this.searchISBN(val), 800);
             }
         });
-
         isbnInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -233,7 +242,6 @@ const App = {
             return;
         }
 
-        // Sauvegarde dans le cache local
         if (isbn) {
             this.state.localCache[isbn] = {
                 title: title,
@@ -277,6 +285,7 @@ const App = {
         document.getElementById('isbn').value = '';
         document.getElementById('search-status').textContent = 'Ajouté ! Prêt pour le suivant.';
         document.getElementById('search-status').className = 'status-msg success';
+        document.getElementById('debug-info').style.display = 'none';
         document.getElementById('isbn').focus();
         setTimeout(() => document.getElementById('search-status').textContent = '', 2000);
     },
@@ -292,8 +301,11 @@ const App = {
         if (!isbn || isbn.length < 10) return;
         
         const status = document.getElementById('search-status');
-        
-        // 1. Vérifier le cache local
+        const debug = document.getElementById('debug-info');
+        debug.style.display = 'block';
+        debug.textContent = "Analyse...";
+
+        // 1. Cache local
         if (this.state.localCache[isbn]) {
             const cached = this.state.localCache[isbn];
             document.getElementById('item-title').value = cached.title;
@@ -301,11 +313,12 @@ const App = {
             document.getElementById('item-year').value = cached.year || '';
             status.textContent = "🟢 Retrouvé dans votre mémoire locale !";
             status.className = "status-msg success";
+            debug.textContent = "Source: Cache Local";
             document.getElementById('btn-add').focus();
             return;
         }
 
-        // 2. Essayer les API
+        // 2. API
         status.textContent = "Recherche en ligne...";
         status.className = "status-msg warning";
 
@@ -321,20 +334,23 @@ const App = {
                 if (!res.ok) throw new Error();
                 
                 const data = await res.json();
+                
+                // DEBUG: Afficher un extrait de la réponse brute
+                debug.textContent = `Source: ${api.name}\nBrut Auteur: ${JSON.stringify(data.document ? data.document[0].author : data.authors)}`;
+
                 const book = api.parse(data);
 
                 if (book && book.title) {
-                    // Affichage des résultats
                     document.getElementById('item-title').value = book.title;
-                    document.getElementById('item-author').value = book.author; // Ici l'auteur est maintenant propre
+                    document.getElementById('item-author').value = book.author;
                     document.getElementById('item-year').value = book.year;
                     
-                    // Sauvegarde cache
                     this.state.localCache[isbn] = book;
                     localStorage.setItem('bookCache', JSON.stringify(this.state.localCache));
                     
                     status.textContent = `🟢 Trouvé via ${api.name}`;
                     status.className = "status-msg success";
+                    debug.textContent += `\nRésultat nettoyé: ${book.author}`;
                     document.getElementById('btn-add').focus();
                     return;
                 }
@@ -344,9 +360,9 @@ const App = {
             }
         }
         
-        // 3. Échec total
         status.textContent = "⚠️ Internet indisponible. Saisie manuelle.";
         status.className = "status-msg error";
+        debug.textContent = "Aucune API n'a répondu correctement.";
         document.getElementById('item-title').focus();
     }
 };
