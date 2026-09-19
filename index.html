@@ -3,14 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Scan & Go - Mode Hors-Ligne</title>
+    <title>Scan & Go - Version Complète</title>
+    <!-- Bibliothèque pour le scanner de code-barres -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --card-bg: #ffffff; --text: #333; --border: #ddd; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; line-height: 1.6; }
         .container { max-width: 600px; margin: 0 auto; padding: 10px; }
+        
         header { background: var(--primary); color: white; padding: 15px; text-align: center; border-radius: 0 0 10px 10px; margin-bottom: 20px; }
         h1 { margin: 0; font-size: 1.2rem; }
         .badge { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; display: inline-block; margin-top: 5px; }
+        .cache-stats { font-size: 0.8rem; color: #cfd8dc; text-align: center; margin-top: 5px; }
         
         .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
         label { font-weight: 600; font-size: 0.85rem; color: #7f8c8d; display: block; margin-top: 10px; }
@@ -18,22 +23,37 @@
         input:focus { border-color: var(--primary); outline: none; background: #fff; }
         .isbn-section input { font-family: monospace; font-size: 1.2rem; letter-spacing: 1px; border-color: var(--primary); background: #eef2f5; }
         
+        .btn-row { display: flex; gap: 10px; margin-bottom: 10px; }
         .btn-add { background-color: var(--accent); color: white; border: none; padding: 18px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; width: 100%; box-shadow: 0 4px 0 #219150; margin-top: 10px; }
         .btn-add:active { transform: translateY(4px); box-shadow: none; }
         .btn-add:disabled { background-color: #ccc; box-shadow: none; }
         
+        .btn-camera { background-color: #8e44ad; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; }
+        .btn-camera:active { transform: scale(0.98); }
+
         .status-msg { text-align: center; font-weight: bold; min-height: 24px; margin: 10px 0; font-size: 0.9rem; }
         .success { color: var(--accent); }
         .info { color: #2980b9; }
-        
+
+        /* Filtres Onglets */
+        .tabs { display: flex; overflow-x: auto; background: #fff; border-radius: 8px; margin-bottom: 15px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .tab-btn { flex: 1; padding: 10px; border: none; background: none; cursor: pointer; font-weight: 600; color: #bdc3c7; border-bottom: 3px solid transparent; white-space: nowrap; }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--accent); }
+
+        /* Liste */
         #list { list-style: none; padding: 0; }
-        .item-card { background: white; padding: 12px; margin-bottom: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); }
-        .delete-btn { background: #ffebee; color: #e74c3c; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; }
-        #auth-container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 12px; text-align: center; }
+        .item-card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .item-info { flex: 1; }
+        .item-title { font-weight: bold; display: block; font-size: 1rem; }
+        .item-meta { font-size: 0.85rem; color: #7f8c8d; display: block; margin-top: 4px; }
+        .delete-btn { background: #ffebee; color: #e74c3c; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; margin-left: 10px; }
         
-        .cache-stats { font-size: 0.8rem; color: #7f8c8d; text-align: center; margin-top: 10px; }
+        #auth-container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 12px; text-align: center; }
+
+        /* Zone Caméra */
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; display: none; margin-bottom: 15px; background: #000; }
+        #reader video { width: 100%; height: auto; }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -49,20 +69,27 @@
     <header>
         <h1>📚 Scan & Go</h1>
         <div class="badge">Mode Hors-Ligne Actif</div>
-        <div class="cache-stats" id="cache-count">Mémoire locale : 0 livres</div>
+        <div class="cache-stats" id="cache-count">Mémoire : 0 livres</div>
     </header>
 
     <div class="container">
+        <!-- Formulaire d'ajout -->
         <div class="card">
-            <label for="isbn">1. Scannez le code-barres</label>
+            <label>Scanner un code-barres</label>
+            <button class="btn-camera" onclick="App.toggleCamera()">
+                <span>📷</span> Activer la caméra
+            </button>
+            <div id="reader"></div>
+            
+            <label for="isbn">ISBN détecté (ou saisie manuelle)</label>
             <div class="isbn-section">
-                <input type="text" id="isbn" placeholder="ISBN (ex: 9782070408504)" autocomplete="off" inputmode="numeric">
+                <input type="text" id="isbn" placeholder="Ex: 9782070408504" autocomplete="off" inputmode="numeric">
                 <div style="font-size:0.75rem; color:#27ae60; margin-top:-10px; margin-bottom:10px; font-weight:bold;" id="auto-category-hint"></div>
             </div>
 
             <div id="search-status" class="status-msg"></div>
 
-            <label for="item-title">2. Titre (à saisir la 1ère fois)</label>
+            <label for="item-title">Titre</label>
             <input type="text" id="item-title" placeholder="Titre du livre">
             
             <div style="display:flex; gap:10px;">
@@ -78,6 +105,7 @@
 
             <label for="category">Catégorie</label>
             <select id="category">
+                <option value="Tous">📂 Tous (Pour recherche)</option>
                 <option value="Livre">📖 Livre</option>
                 <option value="JdR">🎲 Jeu de Rôle</option>
                 <option value="Jeu de Société">🧩 Jeu de Société</option>
@@ -91,8 +119,19 @@
             </button>
         </div>
 
+        <!-- Liste et Filtres -->
         <div class="card">
-            <h3>Derniers ajouts</h3>
+            <div class="tabs">
+                <button class="tab-btn active" onclick="App.setFilter('Tous', this)">Tous</button>
+                <button class="tab-btn" onclick="App.setFilter('Livre', this)">Livres</button>
+                <button class="tab-btn" onclick="App.setFilter('JdR', this)">JdR</button>
+                <button class="tab-btn" onclick="App.setFilter('Jeu de Société', this)">Jeux</button>
+                <button class="tab-btn" onclick="App.setFilter('Vinyle', this)">Vinyles</button>
+            </div>
+
+            <label for="search-list">🔍 Rechercher dans la liste (Titre ou Auteur)</label>
+            <input type="text" id="search-list" placeholder="Ex: Harry Potter ou Rowling..." onkeyup="App.renderList()">
+
             <ul id="list"></ul>
         </div>
     </div>
@@ -107,8 +146,10 @@ const App = {
     state: { 
         user: null, 
         collection: [],
-        // Chargement du cache local
-        localCache: JSON.parse(localStorage.getItem('bookCache') || '{}') 
+        localCache: JSON.parse(localStorage.getItem('bookCache') || '{}'),
+        currentFilter: 'Tous',
+        scannerActive: false,
+        html5QrcodeScanner: null
     },
     supabase: null,
     searchTimeout: null,
@@ -119,22 +160,13 @@ const App = {
         this.checkSession();
         
         const isbnInput = document.getElementById('isbn');
-        
-        // Détection automatique de catégorie suggérée
         isbnInput.addEventListener('input', (e) => {
             const val = e.target.value;
             const hint = document.getElementById('auto-category-hint');
-            
-            // Logique simple de pré-catégorisation par préfixe
-            if (val.startsWith('9782') || val.startsWith('97910')) {
-                hint.textContent = "Suggestion : 📖 Livre francophone détecté";
-            } else if (val.startsWith('9781')) {
-                hint.textContent = "Suggestion : 🇬🇧 Livre anglophone détecté";
-            } else if (val.startsWith('3760') || val.startsWith('400')) {
-                hint.textContent = "Suggestion : 🧩 Jeu de Société détecté";
-            } else {
-                hint.textContent = "";
-            }
+            if (val.startsWith('9782') || val.startsWith('97910')) hint.textContent = "Suggestion : 📖 Livre FR";
+            else if (val.startsWith('9781')) hint.textContent = "Suggestion : 🇬🇧 Livre EN";
+            else if (val.startsWith('3760') || val.startsWith('400')) hint.textContent = "Suggestion : 🧩 Jeu";
+            else hint.textContent = "";
 
             clearTimeout(this.searchTimeout);
             const cleanVal = val.replace(/[^0-9X]/g, '');
@@ -142,18 +174,10 @@ const App = {
                 this.searchTimeout = setTimeout(() => this.checkCache(cleanVal), 500);
             }
         });
-
-        isbnInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                this.checkCache(isbnInput.value.replace(/[^0-9X]/g, ''));
-            }
-        });
     },
 
     updateCacheCount: function() {
-        const count = Object.keys(this.state.localCache).length;
-        document.getElementById('cache-count').textContent = `Mémoire locale : ${count} livres connus`;
+        document.getElementById('cache-count').textContent = `Mémoire : ${Object.keys(this.state.localCache).length} livres`;
     },
 
     checkSession: async function() {
@@ -177,15 +201,43 @@ const App = {
 
     loadCollection: async function() {
         if (!this.state.user) return;
-        const { data } = await this.supabase.from('collection').select('*').eq('user_id', this.state.user.id).order('dateAdded', { ascending: false }).limit(10);
+        const { data } = await this.supabase.from('collection').select('*').eq('user_id', this.state.user.id).order('dateAdded', { ascending: false });
         this.state.collection = data || [];
+        this.renderList();
+    },
+
+    setFilter: function(cat, btn) {
+        this.state.currentFilter = cat;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('search-list').value = ''; // Reset recherche
+        this.renderList();
+    },
+
+    renderList: function() {
         const list = document.getElementById('list');
+        const search = document.getElementById('search-list').value.toLowerCase();
         list.innerHTML = '';
-        this.state.collection.forEach(item => {
+
+        const filtered = this.state.collection.filter(item => {
+            // Filtre Catégorie
+            const matchCat = this.state.currentFilter === 'Tous' || item.category === this.state.currentFilter;
+            // Filtre Recherche (Titre ou Auteur)
+            const matchSearch = (item.title || '').toLowerCase().includes(search) || 
+                                (item.author || '').toLowerCase().includes(search);
+            return matchCat && matchSearch;
+        });
+
+        if (filtered.length === 0) {
+            list.innerHTML = '<li style="text-align:center; color:#999; padding:20px;">Aucun ouvrage trouvé.</li>';
+            return;
+        }
+
+        filtered.forEach(item => {
             list.innerHTML += `<li class="item-card">
-                <div style="flex:1">
-                    <strong>${item.title}</strong><br>
-                    <small style="color:#7f8c8d">${item.author || ''} • ${item.category}</small>
+                <div class="item-info">
+                    <span class="item-title">${item.title}</span>
+                    <span class="item-meta">${item.author || ''} • ${item.year || ''} • <b>${item.category}</b></span>
                 </div>
                 <button class="delete-btn" onclick="App.deleteItem(${item.id})">✕</button>
             </li>`;
@@ -196,49 +248,35 @@ const App = {
         const title = document.getElementById('item-title').value;
         const isbn = document.getElementById('isbn').value.replace(/[^0-9X]/g, '').toUpperCase();
         
-        if (!title) {
-            alert("Veuillez entrer un titre.");
-            document.getElementById('isbn').focus();
-            return;
-        }
+        if (!title) { alert("Veuillez entrer un titre."); document.getElementById('isbn').focus(); return; }
 
-        // SAUVEGARDE DANS LE CACHE LOCAL (Cœur du système hors-ligne)
+        // Sauvegarde Cache Local
         if (isbn) {
             this.state.localCache[isbn] = {
-                title: title,
-                author: document.getElementById('item-author').value,
-                year: document.getElementById('item-year').value,
-                category: document.getElementById('category').value
+                title: title, author: document.getElementById('item-author').value,
+                year: document.getElementById('item-year').value, category: document.getElementById('category').value
             };
             localStorage.setItem('bookCache', JSON.stringify(this.state.localCache));
             this.updateCacheCount();
         }
 
         const btn = document.getElementById('btn-add');
-        btn.disabled = true;
-        btn.textContent = "Ajout...";
+        btn.disabled = true; btn.textContent = "Ajout...";
 
         const newItem = {
-            title: title,
-            author: document.getElementById('item-author').value,
-            year: document.getElementById('item-year').value,
-            category: document.getElementById('category').value,
-            isbn: isbn,
-            dateAdded: new Date().toISOString(),
-            user_id: this.state.user.id
+            title: title, author: document.getElementById('item-author').value,
+            year: document.getElementById('item-year').value, category: document.getElementById('category').value,
+            isbn: isbn, dateAdded: new Date().toISOString(), user_id: this.state.user.id
         };
 
         const { error } = await this.supabase.from('collection').insert([newItem]);
 
-        if (error) { 
-            alert("Erreur: " + error.message); 
-        } else {
+        if (error) alert("Erreur: " + error.message);
+        else {
             this.resetFormForNextScan();
-            this.loadCollection();
+            this.loadCollection(); // Refresh liste
         }
-        
-        btn.disabled = false;
-        btn.textContent = "✅ Valider & Suivant";
+        btn.disabled = false; btn.textContent = "✅ Valider & Suivant";
     },
 
     resetFormForNextScan: function() {
@@ -260,25 +298,68 @@ const App = {
         }
     },
 
-    // Fonction de vérification UNIQUEMENT dans le cache local
     checkCache: function(isbn) {
         const status = document.getElementById('search-status');
-        
         if (this.state.localCache[isbn]) {
-            const cached = this.state.localCache[isbn];
-            document.getElementById('item-title').value = cached.title;
-            document.getElementById('item-author').value = cached.author || '';
-            document.getElementById('item-year').value = cached.year || '';
-            if (cached.category) document.getElementById('category').value = cached.category;
-            
-            status.textContent = "🟢 Retrouvé dans votre mémoire ! (Hors-ligne)";
+            const c = this.state.localCache[isbn];
+            document.getElementById('item-title').value = c.title;
+            document.getElementById('item-author').value = c.author || '';
+            document.getElementById('item-year').value = c.year || '';
+            if(c.category) document.getElementById('category').value = c.category;
+            status.textContent = "🟢 Retrouvé en mémoire !";
             status.className = "status-msg success";
-            document.getElementById('btn-add').focus();
         } else {
-            status.textContent = "⚪ Nouveau livre. Veuillez saisir les infos (elles seront mémorisées).";
+            status.textContent = "⚪ Nouveau livre. Saisie manuelle.";
             status.className = "status-msg info";
-            document.getElementById('item-title').focus();
         }
+    },
+
+    // --- GESTION CAMÉRA ---
+    toggleCamera: function() {
+        const readerDiv = document.getElementById('reader');
+        
+        if (this.state.scannerActive) {
+            // Arrêter la caméra
+            if (this.state.html5QrcodeScanner) {
+                this.state.html5QrcodeScanner.stop().then(() => {
+                    this.state.html5QrcodeScanner.clear();
+                    this.state.scannerActive = false;
+                    readerDiv.style.display = 'none';
+                }).catch(err => console.error(err));
+            }
+            return;
+        }
+
+        // Démarrer la caméra
+        readerDiv.style.display = 'block';
+        this.state.html5QrcodeScanner = new Html5Qrcode("reader");
+        
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        
+        this.state.html5QrcodeScanner.start(
+            { facingMode: "environment" }, 
+            config, 
+            (decodedText) => {
+                // Succès du scan
+                const cleanISBN = decodedText.replace(/[^0-9X]/g, '').toUpperCase();
+                document.getElementById('isbn').value = cleanISBN;
+                
+                // Arrêter caméra auto après scan
+                this.toggleCamera();
+                
+                // Lancer la vérification cache
+                this.checkCache(cleanISBN);
+            },
+            (errorMessage) => {
+                // Erreur de scan (ignorée, c'est normal quand ça ne scanne pas)
+            }
+        ).catch(err => {
+            alert("Erreur caméra: " + err);
+            readerDiv.style.display = 'none';
+            this.state.scannerActive = false;
+        });
+        
+        this.state.scannerActive = true;
     }
 };
 
