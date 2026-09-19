@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Scan & Go - Fix Auteur Définitif</title>
+    <title>Scan & Go - Version BnF Optimisée</title>
     <style>
         :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --card-bg: #ffffff; --text: #333; --border: #ddd; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; line-height: 1.6; }
@@ -25,7 +25,7 @@
         .error { color: #e74c3c; }
         .warning { color: #f39c12; }
         
-        #debug-info { font-size: 0.75rem; color: #999; background: #f9f9f9; padding: 10px; border-radius: 4px; margin-top: 10px; display: none; word-break: break-all; }
+        #debug-info { font-size: 0.75rem; color: #666; background: #f0f0f0; padding: 10px; border-radius: 4px; margin-top: 10px; display: none; word-break: break-all; border: 1px solid #ddd; }
         
         #list { list-style: none; padding: 0; }
         .item-card { background: white; padding: 12px; margin-bottom: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); }
@@ -46,8 +46,8 @@
 
 <div id="app-content" style="display:none;">
     <header>
-        <h1>📚 Scan & Go (Fix Auteur)</h1>
-        <div style="font-size:0.8rem; opacity:0.8;">Nettoyage automatique des objets auteurs</div>
+        <h1>📚 Scan & Go (BnF Direct)</h1>
+        <div style="font-size:0.8rem; opacity:0.8;">Source : Bibliothèque nationale de France</div>
     </header>
 
     <div class="container">
@@ -100,73 +100,48 @@ const App = {
     config: {
         supabaseUrl: 'https://xknjgdtnzxvbzavzksgr.supabase.co',
         supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbmpnZHRuenh2Ynphdnprc2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MjU1MjIsImV4cCI6MjEwNDUwMTUyMn0.a5fOexL2fXWUmBmQO2k3KfnyNnC313rtmM9xlwo2azA',
-        apis: [
-            { 
-                name: "BnF", 
-                url: (isbn) => `https://catalogue.bnf.fr/api/search?isbn=${isbn}&format=json&max=1`,
-                parse: (data) => {
-                    if (!data.document || data.document.length === 0) return null;
-                    const doc = data.document[0];
+        // UNE SEULE API : BnF (La plus fiable pour les noms d'auteurs)
+        api: { 
+            name: "BnF", 
+            url: (isbn) => `https://catalogue.bnf.fr/api/search?isbn=${isbn}&format=json&max=1`,
+            parse: (data) => {
+                if (!data.document || data.document.length === 0) return null;
+                const doc = data.document[0];
+                
+                // Fonction de nettoyage spécifique BnF
+                const cleanField = (field) => {
+                    if (!field) return '';
+                    // Si c'est une chaîne, on retourne tel quel
+                    if (typeof field === 'string') return field.trim();
                     
-                    // FONCTION DE NETTOYAGE ROBUSTE
-                    const cleanAuthor = (raw) => {
-                        if (!raw) return '';
-                        if (typeof raw === 'string') return raw;
-                        if (Array.isArray(raw)) {
-                            return raw.map(item => {
-                                if (typeof item === 'string') return item;
-                                if (item.name) return item.name;
-                                if (item._id) return item._id; // Parfois l'ID est le nom chez BnF
-                                return JSON.stringify(item);
-                            }).join(', ');
-                        }
-                        if (typeof raw === 'object') {
-                            if (raw.name) return raw.name;
-                            if (raw._id) return raw._id;
-                            // Si c'est un objet complexe, on essaie de trouver une clé texte
-                            for (let key in raw) {
-                                if (typeof raw[key] === 'string' && raw[key].length > 2) return raw[key];
+                    // Si c'est un tableau (cas fréquent pour les auteurs)
+                    if (Array.isArray(field)) {
+                        return field.map(item => {
+                            // Si l'élément est une chaîne
+                            if (typeof item === 'string') return item;
+                            // Si c'est un objet, on cherche la clé '_id' ou 'name' ou 'value'
+                            if (typeof item === 'object') {
+                                return item._id || item.name || item.value || item['@value'] || JSON.stringify(item);
                             }
-                            return JSON.stringify(raw);
-                        }
-                        return String(raw);
-                    };
-
-                    return {
-                        title: doc.title || doc.zoneTitle || 'Titre inconnu',
-                        author: cleanAuthor(doc.author) || cleanAuthor(doc.zoneAuthor) || '',
-                        year: doc.datePublication ? String(doc.datePublication).substring(0,4) : ''
-                    };
-                }
-            },
-            { 
-                name: "OpenLibrary", 
-                url: (isbn) => `https://openlibrary.org/isbn/${isbn}.json`,
-                parse: (data) => {
-                    if (!data.title) return null;
+                            return String(item);
+                        }).filter(t => t && t.length > 0).join(', ');
+                    }
                     
-                    const cleanAuthor = (raw) => {
-                        if (!raw) return '';
-                        if (typeof raw === 'string') return raw;
-                        if (Array.isArray(raw)) {
-                            return raw.map(item => {
-                                if (typeof item === 'string') return item;
-                                if (item.name) return item.name;
-                                if (item.key) return item.key; 
-                                return JSON.stringify(item);
-                            }).join(', ');
-                        }
-                        return String(raw);
-                    };
+                    // Si c'est un objet unique
+                    if (typeof field === 'object') {
+                        return field._id || field.name || field.value || field['@value'] || JSON.stringify(field);
+                    }
+                    
+                    return String(field);
+                };
 
-                    return {
-                        title: data.title,
-                        author: cleanAuthor(data.authors),
-                        year: data.first_publish_date ? String(data.first_publish_date).substring(0,4) : ''
-                    };
-                }
+                return {
+                    title: cleanField(doc.title) || cleanField(doc.zoneTitle) || 'Titre inconnu',
+                    author: cleanField(doc.author) || cleanField(doc.zoneAuthor) || '',
+                    year: doc.datePublication ? String(doc.datePublication).substring(0,4) : ''
+                };
             }
-        ]
+        }
     },
     state: { 
         user: null, 
@@ -303,9 +278,9 @@ const App = {
         const status = document.getElementById('search-status');
         const debug = document.getElementById('debug-info');
         debug.style.display = 'block';
-        debug.textContent = "Analyse...";
+        debug.textContent = "Interrogation BnF...";
 
-        // 1. Cache local
+        // 1. Cache local (Priorité absolue)
         if (this.state.localCache[isbn]) {
             const cached = this.state.localCache[isbn];
             document.getElementById('item-title').value = cached.title;
@@ -313,57 +288,59 @@ const App = {
             document.getElementById('item-year').value = cached.year || '';
             status.textContent = "🟢 Retrouvé dans votre mémoire locale !";
             status.className = "status-msg success";
-            debug.textContent = "Source: Cache Local";
+            debug.textContent = "Source: Cache Local (Hors-ligne)";
             document.getElementById('btn-add').focus();
             return;
         }
 
-        // 2. API
-        status.textContent = "Recherche en ligne...";
+        // 2. API BnF
+        status.textContent = "Recherche BnF en cours...";
         status.className = "status-msg warning";
 
-        for (const api of this.config.apis) {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000);
-                
-                const res = await fetch(api.url(isbn), { signal: controller.signal });
-                clearTimeout(timeoutId);
-                
-                if (res.status === 429 || res.status === 403) continue;
-                if (!res.ok) throw new Error();
-                
-                const data = await res.json();
-                
-                // DEBUG: Afficher un extrait de la réponse brute
-                debug.textContent = `Source: ${api.name}\nBrut Auteur: ${JSON.stringify(data.document ? data.document[0].author : data.authors)}`;
-
-                const book = api.parse(data);
-
-                if (book && book.title) {
-                    document.getElementById('item-title').value = book.title;
-                    document.getElementById('item-author').value = book.author;
-                    document.getElementById('item-year').value = book.year;
-                    
-                    this.state.localCache[isbn] = book;
-                    localStorage.setItem('bookCache', JSON.stringify(this.state.localCache));
-                    
-                    status.textContent = `🟢 Trouvé via ${api.name}`;
-                    status.className = "status-msg success";
-                    debug.textContent += `\nRésultat nettoyé: ${book.author}`;
-                    document.getElementById('btn-add').focus();
-                    return;
-                }
-            } catch (e) {
-                console.warn(`API ${api.name} échouée`, e);
-                continue;
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s max
+            
+            const res = await fetch(this.config.api.url(isbn), { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
+            if (res.status === 429 || res.status === 403) {
+                throw new Error("Accès bloqué temporairement");
             }
+            if (!res.ok) throw new Error("Erreur réseau");
+            
+            const data = await res.json();
+            
+            // Debug : afficher l'auteur brut pour vérification
+            const rawAuthor = (data.document && data.document[0]) ? (data.document[0].author || data.document[0].zoneAuthor) : 'N/A';
+            debug.textContent = `Brut BnF: ${JSON.stringify(rawAuthor)}`;
+
+            const book = this.config.api.parse(data);
+
+            if (book && book.title && book.title !== 'Titre inconnu') {
+                document.getElementById('item-title').value = book.title;
+                document.getElementById('item-author').value = book.author;
+                document.getElementById('item-year').value = book.year;
+                
+                // Sauvegarde dans le cache
+                this.state.localCache[isbn] = book;
+                localStorage.setItem('bookCache', JSON.stringify(this.state.localCache));
+                
+                status.textContent = `🟢 Trouvé (BnF)`;
+                status.className = "status-msg success";
+                debug.textContent += `\nNettoyé: ${book.author}`;
+                document.getElementById('btn-add').focus();
+                return;
+            } else {
+                throw new Error("Livre non trouvé dans la BnF");
+            }
+        } catch (e) {
+            console.warn(e);
+            status.textContent = "⚠️ Non trouvé ou erreur réseau. Saisie manuelle.";
+            status.className = "status-msg error";
+            debug.textContent = `Erreur: ${e.message}. Mode manuel activé.`;
+            document.getElementById('item-title').focus();
         }
-        
-        status.textContent = "⚠️ Internet indisponible. Saisie manuelle.";
-        status.className = "status-msg error";
-        debug.textContent = "Aucune API n'a répondu correctement.";
-        document.getElementById('item-title').focus();
     }
 };
 
