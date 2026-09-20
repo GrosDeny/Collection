@@ -1,10 +1,8 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Scan & Go - Version Complète</title>
-    <!-- Bibliothèque pour le scanner de code-barres -->
+    <title>Scan & Go - Anti-Doublons</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -34,10 +32,11 @@
         .status-msg { text-align: center; font-weight: bold; min-height: 24px; margin: 10px 0; font-size: 0.9rem; }
         .success { color: var(--accent); }
         .info { color: #2980b9; }
+        .warning { color: #d35400; }
 
         /* Filtres Onglets */
         .tabs { display: flex; overflow-x: auto; background: #fff; border-radius: 8px; margin-bottom: 15px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .tab-btn { flex: 1; padding: 10px; border: none; background: none; cursor: pointer; font-weight: 600; color: #bdc3c7; border-bottom: 3px solid transparent; white-space: nowrap; }
+        .tab-btn { flex: 1; padding: 10px; border: none; background: none; cursor: pointer; font-weight: 600; color: #bdc3c7; border-bottom: 3px solid transparent; white-space: nowrap; min-width: 60px; }
         .tab-btn.active { color: var(--primary); border-bottom-color: var(--accent); }
 
         /* Liste */
@@ -68,7 +67,7 @@
 <div id="app-content" style="display:none;">
     <header>
         <h1>📚 Scan & Go</h1>
-        <div class="badge">Mode Hors-Ligne Actif</div>
+        <div class="badge">Anti-Doublons Actif</div>
         <div class="cache-stats" id="cache-count">Mémoire : 0 livres</div>
     </header>
 
@@ -105,7 +104,7 @@
 
             <label for="category">Catégorie</label>
             <select id="category">
-                <option value="Tous">📂 Tous (Pour recherche)</option>
+                <option value="Tous">📂 Tous</option>
                 <option value="Livre">📖 Livre</option>
                 <option value="JdR">🎲 Jeu de Rôle</option>
                 <option value="Jeu de Société">🧩 Jeu de Société</option>
@@ -127,10 +126,12 @@
                 <button class="tab-btn" onclick="App.setFilter('JdR', this)">JdR</button>
                 <button class="tab-btn" onclick="App.setFilter('Jeu de Société', this)">Jeux</button>
                 <button class="tab-btn" onclick="App.setFilter('Vinyle', this)">Vinyles</button>
+                <button class="tab-btn" onclick="App.setFilter('BD', this)">BD</button>
+                <button class="tab-btn" onclick="App.setFilter('Manga', this)">Manga</button>
             </div>
 
-            <label for="search-list">🔍 Rechercher dans la liste (Titre ou Auteur)</label>
-            <input type="text" id="search-list" placeholder="Ex: Harry Potter ou Rowling..." onkeyup="App.renderList()">
+            <label for="search-list">🔍 Rechercher (Titre ou Auteur)</label>
+            <input type="text" id="search-list" placeholder="Ex: Harry Potter..." onkeyup="App.renderList()">
 
             <ul id="list"></ul>
         </div>
@@ -210,7 +211,7 @@ const App = {
         this.state.currentFilter = cat;
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        document.getElementById('search-list').value = ''; // Reset recherche
+        document.getElementById('search-list').value = '';
         this.renderList();
     },
 
@@ -220,9 +221,7 @@ const App = {
         list.innerHTML = '';
 
         const filtered = this.state.collection.filter(item => {
-            // Filtre Catégorie
             const matchCat = this.state.currentFilter === 'Tous' || item.category === this.state.currentFilter;
-            // Filtre Recherche (Titre ou Auteur)
             const matchSearch = (item.title || '').toLowerCase().includes(search) || 
                                 (item.author || '').toLowerCase().includes(search);
             return matchCat && matchSearch;
@@ -244,37 +243,76 @@ const App = {
         });
     },
 
+    // --- VÉRIFICATION ANTI-DOUBLONS ---
+    checkDuplicate: function(newItem) {
+        // 1. Vérification par ISBN (si présent)
+        if (newItem.isbn) {
+            const exists = this.state.collection.some(item => item.isbn === newItem.isbn);
+            if (exists) return { isDuplicate: true, reason: "Ce livre (même ISBN) est déjà dans votre collection." };
+        }
+
+        // 2. Vérification par Titre + Auteur (si pas d'ISBN)
+        if (!newItem.isbn && newItem.title) {
+            const cleanTitle = newItem.title.toLowerCase().trim();
+            const cleanAuthor = (newItem.author || '').toLowerCase().trim();
+            
+            const exists = this.state.collection.some(item => {
+                const itemTitle = (item.title || '').toLowerCase().trim();
+                const itemAuthor = (item.author || '').toLowerCase().trim();
+                return itemTitle === cleanTitle && itemAuthor === cleanAuthor;
+            });
+
+            if (exists) return { isDuplicate: true, reason: "Un livre avec ce Titre et cet Auteur existe déjà." };
+        }
+
+        return { isDuplicate: false };
+    },
+
     addItemAndNext: async function() {
         const title = document.getElementById('item-title').value;
         const isbn = document.getElementById('isbn').value.replace(/[^0-9X]/g, '').toUpperCase();
         
         if (!title) { alert("Veuillez entrer un titre."); document.getElementById('isbn').focus(); return; }
 
-        // Sauvegarde Cache Local
-        if (isbn) {
-            this.state.localCache[isbn] = {
-                title: title, author: document.getElementById('item-author').value,
-                year: document.getElementById('item-year').value, category: document.getElementById('category').value
-            };
-            localStorage.setItem('bookCache', JSON.stringify(this.state.localCache));
-            this.updateCacheCount();
+        const newItem = {
+            title: title, 
+            author: document.getElementById('item-author').value,
+            year: document.getElementById('item-year').value, 
+            category: document.getElementById('category').value,
+            isbn: isbn, 
+            dateAdded: new Date().toISOString(), 
+            user_id: this.state.user.id
+        };
+
+        // --- BLOCAGE DOUBLON ---
+        const check = this.checkDuplicate(newItem);
+        if (check.isDuplicate) {
+            alert("⚠️ Doublon détecté !\n\n" + check.reason + "\n\nAjout annulé.");
+            document.getElementById('search-status').textContent = "Ajout annulé (Doublon)";
+            document.getElementById('search-status').className = "status-msg warning";
+            return;
         }
 
         const btn = document.getElementById('btn-add');
         btn.disabled = true; btn.textContent = "Ajout...";
 
-        const newItem = {
-            title: title, author: document.getElementById('item-author').value,
-            year: document.getElementById('item-year').value, category: document.getElementById('category').value,
-            isbn: isbn, dateAdded: new Date().toISOString(), user_id: this.state.user.id
-        };
-
         const { error } = await this.supabase.from('collection').insert([newItem]);
 
-        if (error) alert("Erreur: " + error.message);
-        else {
+        if (error) { 
+            alert("Erreur: " + error.message); 
+        } else {
+            // Sauvegarde Cache Local (seulement si succès)
+            if (isbn) {
+                this.state.localCache[isbn] = {
+                    title: title, author: newItem.author,
+                    year: newItem.year, category: newItem.category
+                };
+                localStorage.setItem('bookCache', JSON.stringify(this.state.localCache));
+                this.updateCacheCount();
+            }
+            
             this.resetFormForNextScan();
-            this.loadCollection(); // Refresh liste
+            this.loadCollection();
         }
         btn.disabled = false; btn.textContent = "✅ Valider & Suivant";
     },
@@ -306,8 +344,16 @@ const App = {
             document.getElementById('item-author').value = c.author || '';
             document.getElementById('item-year').value = c.year || '';
             if(c.category) document.getElementById('category').value = c.category;
-            status.textContent = "🟢 Retrouvé en mémoire !";
-            status.className = "status-msg success";
+            
+            // Vérifier aussi si ce livre connu est DÉJÀ dans la liste actuelle
+            const check = this.checkDuplicate({ isbn: isbn, title: c.title, author: c.author });
+            if (check.isDuplicate) {
+                status.textContent = "⚠️ Déjà dans la collection !";
+                status.className = "status-msg warning";
+            } else {
+                status.textContent = "🟢 Retrouvé en mémoire !";
+                status.className = "status-msg success";
+            }
         } else {
             status.textContent = "⚪ Nouveau livre. Saisie manuelle.";
             status.className = "status-msg info";
@@ -319,7 +365,6 @@ const App = {
         const readerDiv = document.getElementById('reader');
         
         if (this.state.scannerActive) {
-            // Arrêter la caméra
             if (this.state.html5QrcodeScanner) {
                 this.state.html5QrcodeScanner.stop().then(() => {
                     this.state.html5QrcodeScanner.clear();
@@ -330,7 +375,6 @@ const App = {
             return;
         }
 
-        // Démarrer la caméra
         readerDiv.style.display = 'block';
         this.state.html5QrcodeScanner = new Html5Qrcode("reader");
         
@@ -340,19 +384,12 @@ const App = {
             { facingMode: "environment" }, 
             config, 
             (decodedText) => {
-                // Succès du scan
                 const cleanISBN = decodedText.replace(/[^0-9X]/g, '').toUpperCase();
                 document.getElementById('isbn').value = cleanISBN;
-                
-                // Arrêter caméra auto après scan
                 this.toggleCamera();
-                
-                // Lancer la vérification cache
                 this.checkCache(cleanISBN);
             },
-            (errorMessage) => {
-                // Erreur de scan (ignorée, c'est normal quand ça ne scanne pas)
-            }
+            (errorMessage) => {}
         ).catch(err => {
             alert("Erreur caméra: " + err);
             readerDiv.style.display = 'none';
