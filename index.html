@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="fr">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Scan & Go - Anti-Doublons</title>
+    <title>Scan & Go - Compteurs par Catégorie</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -13,7 +14,6 @@
         header { background: var(--primary); color: white; padding: 15px; text-align: center; border-radius: 0 0 10px 10px; margin-bottom: 20px; }
         h1 { margin: 0; font-size: 1.2rem; }
         .badge { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; display: inline-block; margin-top: 5px; }
-        .cache-stats { font-size: 0.8rem; color: #cfd8dc; text-align: center; margin-top: 5px; }
         
         .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
         label { font-weight: 600; font-size: 0.85rem; color: #7f8c8d; display: block; margin-top: 10px; }
@@ -21,7 +21,6 @@
         input:focus { border-color: var(--primary); outline: none; background: #fff; }
         .isbn-section input { font-family: monospace; font-size: 1.2rem; letter-spacing: 1px; border-color: var(--primary); background: #eef2f5; }
         
-        .btn-row { display: flex; gap: 10px; margin-bottom: 10px; }
         .btn-add { background-color: var(--accent); color: white; border: none; padding: 18px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; width: 100%; box-shadow: 0 4px 0 #219150; margin-top: 10px; }
         .btn-add:active { transform: translateY(4px); box-shadow: none; }
         .btn-add:disabled { background-color: #ccc; box-shadow: none; }
@@ -34,10 +33,19 @@
         .info { color: #2980b9; }
         .warning { color: #d35400; }
 
-        /* Filtres Onglets */
+        /* Filtres Onglets avec Compteurs */
         .tabs { display: flex; overflow-x: auto; background: #fff; border-radius: 8px; margin-bottom: 15px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .tab-btn { flex: 1; padding: 10px; border: none; background: none; cursor: pointer; font-weight: 600; color: #bdc3c7; border-bottom: 3px solid transparent; white-space: nowrap; min-width: 60px; }
+        .tab-btn { 
+            flex: 1; padding: 10px 5px; border: none; background: none; cursor: pointer; 
+            font-weight: 600; color: #bdc3c7; border-bottom: 3px solid transparent; 
+            white-space: nowrap; min-width: 70px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+        }
         .tab-btn.active { color: var(--primary); border-bottom-color: var(--accent); }
+        .tab-count { 
+            font-size: 0.7rem; background: #eee; color: #7f8c8d; 
+            padding: 1px 6px; border-radius: 10px; font-weight: normal; 
+        }
+        .tab-btn.active .tab-count { background: var(--accent); color: white; }
 
         /* Liste */
         #list { list-style: none; padding: 0; }
@@ -67,8 +75,7 @@
 <div id="app-content" style="display:none;">
     <header>
         <h1>📚 Scan & Go</h1>
-        <div class="badge">Anti-Doublons Actif</div>
-        <div class="cache-stats" id="cache-count">Mémoire : 0 livres</div>
+        <div class="badge">Anti-Doublons & Compteurs</div>
     </header>
 
     <div class="container">
@@ -120,14 +127,8 @@
 
         <!-- Liste et Filtres -->
         <div class="card">
-            <div class="tabs">
-                <button class="tab-btn active" onclick="App.setFilter('Tous', this)">Tous</button>
-                <button class="tab-btn" onclick="App.setFilter('Livre', this)">Livres</button>
-                <button class="tab-btn" onclick="App.setFilter('JdR', this)">JdR</button>
-                <button class="tab-btn" onclick="App.setFilter('Jeu de Société', this)">Jeux</button>
-                <button class="tab-btn" onclick="App.setFilter('Vinyle', this)">Vinyles</button>
-                <button class="tab-btn" onclick="App.setFilter('BD', this)">BD</button>
-                <button class="tab-btn" onclick="App.setFilter('Manga', this)">Manga</button>
+            <div class="tabs" id="tabs-container">
+                <!-- Les boutons sont générés dynamiquement pour inclure les compteurs -->
             </div>
 
             <label for="search-list">🔍 Rechercher (Titre ou Auteur)</label>
@@ -144,6 +145,8 @@ const App = {
         supabaseUrl: 'https://xknjgdtnzxvbzavzksgr.supabase.co',
         supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbmpnZHRuenh2Ynphdnprc2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MjU1MjIsImV4cCI6MjEwNDUwMTUyMn0.a5fOexL2fXWUmBmQO2k3KfnyNnC313rtmM9xlwo2azA'
     },
+    // Liste des catégories à afficher dans les onglets
+    categories: ['Tous', 'Livre', 'JdR', 'Jeu de Société', 'Vinyle', 'BD', 'Manga'],
     state: { 
         user: null, 
         collection: [],
@@ -157,8 +160,8 @@ const App = {
 
     init: function() {
         this.supabase = window.supabase.createClient(this.config.supabaseUrl, this.config.supabaseKey);
-        this.updateCacheCount();
         this.checkSession();
+        this.renderTabs(); // Générer les onglets au démarrage
         
         const isbnInput = document.getElementById('isbn');
         isbnInput.addEventListener('input', (e) => {
@@ -177,8 +180,44 @@ const App = {
         });
     },
 
-    updateCacheCount: function() {
-        document.getElementById('cache-count').textContent = `Mémoire : ${Object.keys(this.state.localCache).length} livres`;
+    // Calculer les comptes par catégorie
+    getCounts: function() {
+        const counts = {};
+        this.categories.forEach(cat => counts[cat] = 0);
+        
+        this.state.collection.forEach(item => {
+            const cat = item.category;
+            if (counts[cat] !== undefined) {
+                counts[cat]++;
+            }
+            // On compte aussi dans "Tous" implicitement via la longueur du tableau, mais ici on veut par catégorie
+        });
+        return counts;
+    },
+
+    // Générer les onglets avec les compteurs
+    renderTabs: function() {
+        const container = document.getElementById('tabs-container');
+        const counts = this.getCounts();
+        const total = this.state.collection.length;
+        
+        let html = '';
+        this.categories.forEach(cat => {
+            const count = cat === 'Tous' ? total : counts[cat];
+            const isActive = this.state.currentFilter === cat ? 'active' : '';
+            const icon = cat === 'Tous' ? '📂' : 
+                         cat === 'Livre' ? '📖' : 
+                         cat === 'JdR' ? '🎲' : 
+                         cat === 'Jeu de Société' ? '🧩' : 
+                         cat === 'Vinyle' ? '💿' : 
+                         cat === 'BD' ? '🎨' : '🇯🇵';
+            
+            html += `<button class="tab-btn ${isActive}" onclick="App.setFilter('${cat}', this)">
+                <span>${icon} ${cat}</span>
+                <span class="tab-count">${count}</span>
+            </button>`;
+        });
+        container.innerHTML = html;
     },
 
     checkSession: async function() {
@@ -204,13 +243,13 @@ const App = {
         if (!this.state.user) return;
         const { data } = await this.supabase.from('collection').select('*').eq('user_id', this.state.user.id).order('dateAdded', { ascending: false });
         this.state.collection = data || [];
+        this.renderTabs(); // Mettre à jour les compteurs
         this.renderList();
     },
 
     setFilter: function(cat, btn) {
         this.state.currentFilter = cat;
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        this.renderTabs(); // Re-rendu pour mettre à jour la classe 'active' et les compteurs si besoin
         document.getElementById('search-list').value = '';
         this.renderList();
     },
@@ -243,28 +282,21 @@ const App = {
         });
     },
 
-    // --- VÉRIFICATION ANTI-DOUBLONS ---
     checkDuplicate: function(newItem) {
-        // 1. Vérification par ISBN (si présent)
         if (newItem.isbn) {
             const exists = this.state.collection.some(item => item.isbn === newItem.isbn);
             if (exists) return { isDuplicate: true, reason: "Ce livre (même ISBN) est déjà dans votre collection." };
         }
-
-        // 2. Vérification par Titre + Auteur (si pas d'ISBN)
         if (!newItem.isbn && newItem.title) {
             const cleanTitle = newItem.title.toLowerCase().trim();
             const cleanAuthor = (newItem.author || '').toLowerCase().trim();
-            
             const exists = this.state.collection.some(item => {
                 const itemTitle = (item.title || '').toLowerCase().trim();
                 const itemAuthor = (item.author || '').toLowerCase().trim();
                 return itemTitle === cleanTitle && itemAuthor === cleanAuthor;
             });
-
             if (exists) return { isDuplicate: true, reason: "Un livre avec ce Titre et cet Auteur existe déjà." };
         }
-
         return { isDuplicate: false };
     },
 
@@ -284,7 +316,6 @@ const App = {
             user_id: this.state.user.id
         };
 
-        // --- BLOCAGE DOUBLON ---
         const check = this.checkDuplicate(newItem);
         if (check.isDuplicate) {
             alert("⚠️ Doublon détecté !\n\n" + check.reason + "\n\nAjout annulé.");
@@ -301,18 +332,15 @@ const App = {
         if (error) { 
             alert("Erreur: " + error.message); 
         } else {
-            // Sauvegarde Cache Local (seulement si succès)
             if (isbn) {
                 this.state.localCache[isbn] = {
                     title: title, author: newItem.author,
                     year: newItem.year, category: newItem.category
                 };
                 localStorage.setItem('bookCache', JSON.stringify(this.state.localCache));
-                this.updateCacheCount();
             }
-            
             this.resetFormForNextScan();
-            this.loadCollection();
+            this.loadCollection(); // Recharge la liste ET met à jour les compteurs
         }
         btn.disabled = false; btn.textContent = "✅ Valider & Suivant";
     },
@@ -332,7 +360,7 @@ const App = {
     deleteItem: async function(id) {
         if(confirm("Supprimer ?")) {
             await this.supabase.from('collection').delete().eq('id', id);
-            this.loadCollection();
+            this.loadCollection(); // Met à jour les compteurs automatiquement
         }
     },
 
@@ -345,7 +373,6 @@ const App = {
             document.getElementById('item-year').value = c.year || '';
             if(c.category) document.getElementById('category').value = c.category;
             
-            // Vérifier aussi si ce livre connu est DÉJÀ dans la liste actuelle
             const check = this.checkDuplicate({ isbn: isbn, title: c.title, author: c.author });
             if (check.isDuplicate) {
                 status.textContent = "⚠️ Déjà dans la collection !";
@@ -360,10 +387,8 @@ const App = {
         }
     },
 
-    // --- GESTION CAMÉRA ---
     toggleCamera: function() {
         const readerDiv = document.getElementById('reader');
-        
         if (this.state.scannerActive) {
             if (this.state.html5QrcodeScanner) {
                 this.state.html5QrcodeScanner.stop().then(() => {
@@ -374,28 +399,23 @@ const App = {
             }
             return;
         }
-
         readerDiv.style.display = 'block';
         this.state.html5QrcodeScanner = new Html5Qrcode("reader");
-        
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-        
         this.state.html5QrcodeScanner.start(
-            { facingMode: "environment" }, 
-            config, 
+            { facingMode: "environment" }, config, 
             (decodedText) => {
                 const cleanISBN = decodedText.replace(/[^0-9X]/g, '').toUpperCase();
                 document.getElementById('isbn').value = cleanISBN;
                 this.toggleCamera();
                 this.checkCache(cleanISBN);
             },
-            (errorMessage) => {}
+            () => {}
         ).catch(err => {
             alert("Erreur caméra: " + err);
             readerDiv.style.display = 'none';
             this.state.scannerActive = false;
         });
-        
         this.state.scannerActive = true;
     }
 };
