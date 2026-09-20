@@ -3,25 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Scan & Go - Compteurs par Catégorie</title>
+    <title>Ma Médiathèque</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; --card-bg: #ffffff; --text: #333; --border: #ddd; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; line-height: 1.6; }
+        :root {
+            /* Couleurs par défaut (seront écrasées par le JS si personnalisé) */
+            --primary: #2c3e50;
+            --accent: #27ae60;
+            --bg: #f4f7f6;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --border: #dddddd;
+        }
+
+        /* Thème Sombre */
+        body.dark-mode {
+            --bg: #121212;
+            --card-bg: #1e1e1e;
+            --text: #e0e0e0;
+            --border: #333333;
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; line-height: 1.6; transition: background-color 0.3s, color 0.3s; }
         .container { max-width: 600px; margin: 0 auto; padding: 10px; }
         
-        header { background: var(--primary); color: white; padding: 15px; text-align: center; border-radius: 0 0 10px 10px; margin-bottom: 20px; }
+        header { background: var(--primary); color: white; padding: 15px; text-align: center; border-radius: 0 0 10px 10px; margin-bottom: 20px; transition: background-color 0.3s; }
         h1 { margin: 0; font-size: 1.2rem; }
-        .badge { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; display: inline-block; margin-top: 5px; }
+        .badge { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; display: inline-block; margin-top: 5px; cursor: pointer; }
         
-        .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        label { font-weight: 600; font-size: 0.85rem; color: #7f8c8d; display: block; margin-top: 10px; }
-        input, select { width: 100%; padding: 15px; margin: 5px 0 15px; border: 2px solid var(--border); border-radius: 8px; box-sizing: border-box; font-size: 16px; background: #fafafa; }
-        input:focus { border-color: var(--primary); outline: none; background: #fff; }
-        .isbn-section input { font-family: monospace; font-size: 1.2rem; letter-spacing: 1px; border-color: var(--primary); background: #eef2f5; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; transition: background-color 0.3s; }
+        label { font-weight: 600; font-size: 0.85rem; color: var(--text); opacity: 0.8; display: block; margin-top: 10px; }
+        input, select { width: 100%; padding: 15px; margin: 5px 0 15px; border: 2px solid var(--border); border-radius: 8px; box-sizing: border-box; font-size: 16px; background: var(--bg); color: var(--text); }
+        input:focus, select:focus { border-color: var(--primary); outline: none; background: var(--card-bg); }
+        .isbn-section input { font-family: monospace; font-size: 1.2rem; letter-spacing: 1px; border-color: var(--primary); }
         
-        .btn-add { background-color: var(--accent); color: white; border: none; padding: 18px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; width: 100%; box-shadow: 0 4px 0 #219150; margin-top: 10px; }
+        .btn-add { background-color: var(--accent); color: white; border: none; padding: 18px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; width: 100%; box-shadow: 0 4px 0 rgba(0,0,0,0.2); margin-top: 10px; transition: background-color 0.3s; }
         .btn-add:active { transform: translateY(4px); box-shadow: none; }
         .btn-add:disabled { background-color: #ccc; box-shadow: none; }
         
@@ -30,52 +47,98 @@
 
         .status-msg { text-align: center; font-weight: bold; min-height: 24px; margin: 10px 0; font-size: 0.9rem; }
         .success { color: var(--accent); }
-        .info { color: #2980b9; }
-        .warning { color: #d35400; }
+        .info { color: #3498db; }
+        .warning { color: #e67e22; }
 
-        /* Filtres Onglets avec Compteurs */
-        .tabs { display: flex; overflow-x: auto; background: #fff; border-radius: 8px; margin-bottom: 15px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .tab-btn { 
-            flex: 1; padding: 10px 5px; border: none; background: none; cursor: pointer; 
-            font-weight: 600; color: #bdc3c7; border-bottom: 3px solid transparent; 
-            white-space: nowrap; min-width: 70px; display: flex; flex-direction: column; align-items: center; gap: 2px;
-        }
-        .tab-btn.active { color: var(--primary); border-bottom-color: var(--accent); }
-        .tab-count { 
-            font-size: 0.7rem; background: #eee; color: #7f8c8d; 
-            padding: 1px 6px; border-radius: 10px; font-weight: normal; 
-        }
+        /* Filtres Onglets */
+        .tabs { display: flex; overflow-x: auto; background: var(--card-bg); border-radius: 8px; margin-bottom: 15px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .tab-btn { flex: 1; padding: 10px 5px; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--text); opacity: 0.6; border-bottom: 3px solid transparent; white-space: nowrap; min-width: 70px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .tab-btn.active { opacity: 1; border-bottom-color: var(--accent); }
+        .tab-count { font-size: 0.7rem; background: var(--border); color: var(--text); padding: 1px 6px; border-radius: 10px; font-weight: normal; }
         .tab-btn.active .tab-count { background: var(--accent); color: white; }
 
         /* Liste */
         #list { list-style: none; padding: 0; }
-        .item-card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .item-card { background: var(--card-bg); padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .item-info { flex: 1; }
-        .item-title { font-weight: bold; display: block; font-size: 1rem; }
-        .item-meta { font-size: 0.85rem; color: #7f8c8d; display: block; margin-top: 4px; }
+        .item-title { font-weight: bold; display: block; font-size: 1rem; color: var(--text); }
+        .item-meta { font-size: 0.85rem; opacity: 0.7; display: block; margin-top: 4px; }
         .delete-btn { background: #ffebee; color: #e74c3c; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; margin-left: 10px; }
         
-        #auth-container { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 12px; text-align: center; }
+        #auth-container { max-width: 400px; margin: 50px auto; background: var(--card-bg); padding: 30px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
 
         /* Zone Caméra */
         #reader { width: 100%; border-radius: 8px; overflow: hidden; display: none; margin-bottom: 15px; background: #000; }
         #reader video { width: 100%; height: auto; }
+
+        /* Modal Personnalisation */
+        #settings-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: var(--card-bg); padding: 25px; border-radius: 12px; width: 90%; max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .modal-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: var(--text); display: flex; justify-content: space-between; }
+        .close-btn { cursor: pointer; font-size: 1.5rem; line-height: 1; }
+        .color-picker-row { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+        .color-picker-row input[type="color"] { width: 50px; height: 50px; padding: 0; border: none; cursor: pointer; }
+        .btn-save { background: var(--accent); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-reset { background: transparent; color: var(--text); border: 1px solid var(--border); padding: 8px; width: 100%; border-radius: 8px; cursor: pointer; margin-top: 10px; font-size: 0.9rem; }
     </style>
 </head>
 <body>
+
+<!-- Modal de Personnalisation -->
+<div id="settings-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span>🎨 Personnalisation</span>
+            <span class="close-btn" onclick="App.toggleSettings()">&times;</span>
+        </div>
+        
+        <label>Titre de l'application</label>
+        <input type="text" id="setting-title" placeholder="Ex: Ma Médiathèque">
+
+        <div class="color-picker-row">
+            <input type="color" id="setting-primary" value="#2c3e50">
+            <div>
+                <strong>Couleur Principale</strong><br>
+                <small style="opacity:0.7">En-tête, bordures</small>
+            </div>
+        </div>
+
+        <div class="color-picker-row">
+            <input type="color" id="setting-accent" value="#27ae60">
+            <div>
+                <strong>Couleur d'Accentuation</strong><br>
+                <small style="opacity:0.7">Boutons, badges actifs</small>
+            </div>
+        </div>
+
+        <div class="color-picker-row" style="justify-content: space-between;">
+            <label style="margin:0;">Mode Sombre</label>
+            <input type="checkbox" id="setting-darkmode" style="width: auto; margin:0;">
+        </div>
+
+        <button class="btn-save" onclick="App.saveSettings()">💾 Enregistrer</button>
+        <button class="btn-reset" onclick="App.resetSettings()">↺ Réinitialiser</button>
+    </div>
+</div>
 
 <div id="auth-container">
     <h2>Connexion</h2>
     <input type="email" id="auth-email" placeholder="Email">
     <input type="password" id="auth-password" placeholder="Mot de passe">
     <button class="btn-add" onclick="App.doLogin()">Entrer</button>
-    <div id="login-msg" class="status-msg" style="color:red"></div>
+    <div id="login-msg" class="status-msg" style="color:#e74c3c"></div>
 </div>
 
 <div id="app-content" style="display:none;">
     <header>
-        <h1>📚 Scan & Go</h1>
-        <div class="badge">Anti-Doublons & Compteurs</div>
+        <h1 id="app-title">Ma Médiathèque</h1>
+        <div class="badge" onclick="App.toggleSettings()">⚙️ Personnaliser</div>
     </header>
 
     <div class="container">
@@ -90,7 +153,7 @@
             <label for="isbn">ISBN détecté (ou saisie manuelle)</label>
             <div class="isbn-section">
                 <input type="text" id="isbn" placeholder="Ex: 9782070408504" autocomplete="off" inputmode="numeric">
-                <div style="font-size:0.75rem; color:#27ae60; margin-top:-10px; margin-bottom:10px; font-weight:bold;" id="auto-category-hint"></div>
+                <div style="font-size:0.75rem; opacity:0.7; margin-top:-10px; margin-bottom:10px; font-weight:bold;" id="auto-category-hint"></div>
             </div>
 
             <div id="search-status" class="status-msg"></div>
@@ -127,9 +190,7 @@
 
         <!-- Liste et Filtres -->
         <div class="card">
-            <div class="tabs" id="tabs-container">
-                <!-- Les boutons sont générés dynamiquement pour inclure les compteurs -->
-            </div>
+            <div class="tabs" id="tabs-container"></div>
 
             <label for="search-list">🔍 Rechercher (Titre ou Auteur)</label>
             <input type="text" id="search-list" placeholder="Ex: Harry Potter..." onkeyup="App.renderList()">
@@ -145,7 +206,6 @@ const App = {
         supabaseUrl: 'https://xknjgdtnzxvbzavzksgr.supabase.co',
         supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrbmpnZHRuenh2Ynphdnprc2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MjU1MjIsImV4cCI6MjEwNDUwMTUyMn0.a5fOexL2fXWUmBmQO2k3KfnyNnC313rtmM9xlwo2azA'
     },
-    // Liste des catégories à afficher dans les onglets
     categories: ['Tous', 'Livre', 'JdR', 'Jeu de Société', 'Vinyle', 'BD', 'Manga'],
     state: { 
         user: null, 
@@ -160,8 +220,9 @@ const App = {
 
     init: function() {
         this.supabase = window.supabase.createClient(this.config.supabaseUrl, this.config.supabaseKey);
+        this.loadSettings(); // Charger les préférences utilisateur
         this.checkSession();
-        this.renderTabs(); // Générer les onglets au démarrage
+        this.renderTabs();
         
         const isbnInput = document.getElementById('isbn');
         isbnInput.addEventListener('input', (e) => {
@@ -180,40 +241,90 @@ const App = {
         });
     },
 
-    // Calculer les comptes par catégorie
+    // --- GESTION DES PARAMÈTRES ---
+    loadSettings: function() {
+        const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+        const root = document.documentElement;
+        
+        // Appliquer les couleurs
+        if (settings.primary) {
+            root.style.setProperty('--primary', settings.primary);
+            document.getElementById('setting-primary').value = settings.primary;
+        }
+        if (settings.accent) {
+            root.style.setProperty('--accent', settings.accent);
+            document.getElementById('setting-accent').value = settings.accent;
+        }
+        
+        // Appliquer le titre
+        if (settings.title) {
+            document.getElementById('app-title').textContent = settings.title;
+            document.getElementById('setting-title').value = settings.title;
+            document.title = settings.title;
+        }
+
+        // Appliquer le thème sombre
+        if (settings.darkMode) {
+            document.body.classList.add('dark-mode');
+            document.getElementById('setting-darkmode').checked = true;
+        }
+    },
+
+    saveSettings: function() {
+        const title = document.getElementById('setting-title').value || 'Ma Médiathèque';
+        const primary = document.getElementById('setting-primary').value;
+        const accent = document.getElementById('setting-accent').value;
+        const darkMode = document.getElementById('setting-darkmode').checked;
+
+        const settings = { title, primary, accent, darkMode };
+        localStorage.setItem('appSettings', JSON.stringify(settings));
+
+        // Application immédiate
+        document.getElementById('app-title').textContent = title;
+        document.title = title;
+        document.documentElement.style.setProperty('--primary', primary);
+        document.documentElement.style.setProperty('--accent', accent);
+        
+        if (darkMode) document.body.classList.add('dark-mode');
+        else document.body.classList.remove('dark-mode');
+
+        this.toggleSettings();
+        alert("✅ Préférences enregistrées !");
+    },
+
+    resetSettings: function() {
+        localStorage.removeItem('appSettings');
+        location.reload(); // Recharger pour revenir aux défauts
+    },
+
+    toggleSettings: function() {
+        const modal = document.getElementById('settings-modal');
+        modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+    },
+
+    // --- LOGIQUE MÉTIER ---
     getCounts: function() {
         const counts = {};
         this.categories.forEach(cat => counts[cat] = 0);
-        
         this.state.collection.forEach(item => {
-            const cat = item.category;
-            if (counts[cat] !== undefined) {
-                counts[cat]++;
-            }
-            // On compte aussi dans "Tous" implicitement via la longueur du tableau, mais ici on veut par catégorie
+            if (counts[item.category] !== undefined) counts[item.category]++;
         });
         return counts;
     },
 
-    // Générer les onglets avec les compteurs
     renderTabs: function() {
         const container = document.getElementById('tabs-container');
         const counts = this.getCounts();
         const total = this.state.collection.length;
-        
         let html = '';
+        
+        const icons = { 'Tous': '📂', 'Livre': '📖', 'JdR': '🎲', 'Jeu de Société': '🧩', 'Vinyle': '💿', 'BD': '🎨', 'Manga': '🇯🇵' };
+
         this.categories.forEach(cat => {
             const count = cat === 'Tous' ? total : counts[cat];
             const isActive = this.state.currentFilter === cat ? 'active' : '';
-            const icon = cat === 'Tous' ? '📂' : 
-                         cat === 'Livre' ? '📖' : 
-                         cat === 'JdR' ? '🎲' : 
-                         cat === 'Jeu de Société' ? '🧩' : 
-                         cat === 'Vinyle' ? '💿' : 
-                         cat === 'BD' ? '🎨' : '🇯🇵';
-            
             html += `<button class="tab-btn ${isActive}" onclick="App.setFilter('${cat}', this)">
-                <span>${icon} ${cat}</span>
+                <span>${icons[cat] || '📄'} ${cat}</span>
                 <span class="tab-count">${count}</span>
             </button>`;
         });
@@ -243,13 +354,13 @@ const App = {
         if (!this.state.user) return;
         const { data } = await this.supabase.from('collection').select('*').eq('user_id', this.state.user.id).order('dateAdded', { ascending: false });
         this.state.collection = data || [];
-        this.renderTabs(); // Mettre à jour les compteurs
+        this.renderTabs();
         this.renderList();
     },
 
     setFilter: function(cat, btn) {
         this.state.currentFilter = cat;
-        this.renderTabs(); // Re-rendu pour mettre à jour la classe 'active' et les compteurs si besoin
+        this.renderTabs();
         document.getElementById('search-list').value = '';
         this.renderList();
     },
@@ -261,13 +372,12 @@ const App = {
 
         const filtered = this.state.collection.filter(item => {
             const matchCat = this.state.currentFilter === 'Tous' || item.category === this.state.currentFilter;
-            const matchSearch = (item.title || '').toLowerCase().includes(search) || 
-                                (item.author || '').toLowerCase().includes(search);
+            const matchSearch = (item.title || '').toLowerCase().includes(search) || (item.author || '').toLowerCase().includes(search);
             return matchCat && matchSearch;
         });
 
         if (filtered.length === 0) {
-            list.innerHTML = '<li style="text-align:center; color:#999; padding:20px;">Aucun ouvrage trouvé.</li>';
+            list.innerHTML = '<li style="text-align:center; opacity:0.6; padding:20px;">Aucun ouvrage trouvé.</li>';
             return;
         }
 
@@ -291,9 +401,7 @@ const App = {
             const cleanTitle = newItem.title.toLowerCase().trim();
             const cleanAuthor = (newItem.author || '').toLowerCase().trim();
             const exists = this.state.collection.some(item => {
-                const itemTitle = (item.title || '').toLowerCase().trim();
-                const itemAuthor = (item.author || '').toLowerCase().trim();
-                return itemTitle === cleanTitle && itemAuthor === cleanAuthor;
+                return (item.title || '').toLowerCase().trim() === cleanTitle && (item.author || '').toLowerCase().trim() === cleanAuthor;
             });
             if (exists) return { isDuplicate: true, reason: "Un livre avec ce Titre et cet Auteur existe déjà." };
         }
@@ -303,22 +411,17 @@ const App = {
     addItemAndNext: async function() {
         const title = document.getElementById('item-title').value;
         const isbn = document.getElementById('isbn').value.replace(/[^0-9X]/g, '').toUpperCase();
-        
         if (!title) { alert("Veuillez entrer un titre."); document.getElementById('isbn').focus(); return; }
 
         const newItem = {
-            title: title, 
-            author: document.getElementById('item-author').value,
-            year: document.getElementById('item-year').value, 
-            category: document.getElementById('category').value,
-            isbn: isbn, 
-            dateAdded: new Date().toISOString(), 
-            user_id: this.state.user.id
+            title: title, author: document.getElementById('item-author').value,
+            year: document.getElementById('item-year').value, category: document.getElementById('category').value,
+            isbn: isbn, dateAdded: new Date().toISOString(), user_id: this.state.user.id
         };
 
         const check = this.checkDuplicate(newItem);
         if (check.isDuplicate) {
-            alert("⚠️ Doublon détecté !\n\n" + check.reason + "\n\nAjout annulé.");
+            alert("⚠️ Doublon détecté !\n\n" + check.reason);
             document.getElementById('search-status').textContent = "Ajout annulé (Doublon)";
             document.getElementById('search-status').className = "status-msg warning";
             return;
@@ -329,18 +432,14 @@ const App = {
 
         const { error } = await this.supabase.from('collection').insert([newItem]);
 
-        if (error) { 
-            alert("Erreur: " + error.message); 
-        } else {
+        if (error) { alert("Erreur: " + error.message); } 
+        else {
             if (isbn) {
-                this.state.localCache[isbn] = {
-                    title: title, author: newItem.author,
-                    year: newItem.year, category: newItem.category
-                };
+                this.state.localCache[isbn] = { title, author: newItem.author, year: newItem.year, category: newItem.category };
                 localStorage.setItem('bookCache', JSON.stringify(this.state.localCache));
             }
             this.resetFormForNextScan();
-            this.loadCollection(); // Recharge la liste ET met à jour les compteurs
+            this.loadCollection();
         }
         btn.disabled = false; btn.textContent = "✅ Valider & Suivant";
     },
@@ -351,7 +450,7 @@ const App = {
         document.getElementById('item-year').value = '';
         document.getElementById('isbn').value = '';
         document.getElementById('auto-category-hint').textContent = '';
-        document.getElementById('search-status').textContent = 'Ajouté ! Prêt pour le suivant.';
+        document.getElementById('search-status').textContent = 'Ajouté !';
         document.getElementById('search-status').className = 'status-msg success';
         document.getElementById('isbn').focus();
         setTimeout(() => document.getElementById('search-status').textContent = '', 1500);
@@ -360,7 +459,7 @@ const App = {
     deleteItem: async function(id) {
         if(confirm("Supprimer ?")) {
             await this.supabase.from('collection').delete().eq('id', id);
-            this.loadCollection(); // Met à jour les compteurs automatiquement
+            this.loadCollection();
         }
     },
 
@@ -373,14 +472,9 @@ const App = {
             document.getElementById('item-year').value = c.year || '';
             if(c.category) document.getElementById('category').value = c.category;
             
-            const check = this.checkDuplicate({ isbn: isbn, title: c.title, author: c.author });
-            if (check.isDuplicate) {
-                status.textContent = "⚠️ Déjà dans la collection !";
-                status.className = "status-msg warning";
-            } else {
-                status.textContent = "🟢 Retrouvé en mémoire !";
-                status.className = "status-msg success";
-            }
+            const check = this.checkDuplicate({ isbn, title: c.title, author: c.author });
+            status.textContent = check.isDuplicate ? "⚠️ Déjà dans la collection !" : "🟢 Retrouvé en mémoire !";
+            status.className = check.isDuplicate ? "status-msg warning" : "status-msg success";
         } else {
             status.textContent = "⚪ Nouveau livre. Saisie manuelle.";
             status.className = "status-msg info";
@@ -395,23 +489,17 @@ const App = {
                     this.state.html5QrcodeScanner.clear();
                     this.state.scannerActive = false;
                     readerDiv.style.display = 'none';
-                }).catch(err => console.error(err));
+                });
             }
             return;
         }
         readerDiv.style.display = 'block';
         this.state.html5QrcodeScanner = new Html5Qrcode("reader");
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-        this.state.html5QrcodeScanner.start(
-            { facingMode: "environment" }, config, 
-            (decodedText) => {
-                const cleanISBN = decodedText.replace(/[^0-9X]/g, '').toUpperCase();
-                document.getElementById('isbn').value = cleanISBN;
-                this.toggleCamera();
-                this.checkCache(cleanISBN);
-            },
-            () => {}
-        ).catch(err => {
+        this.state.html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, (decodedText) => {
+            document.getElementById('isbn').value = decodedText.replace(/[^0-9X]/g, '').toUpperCase();
+            this.toggleCamera();
+            this.checkCache(document.getElementById('isbn').value);
+        }).catch(err => {
             alert("Erreur caméra: " + err);
             readerDiv.style.display = 'none';
             this.state.scannerActive = false;
