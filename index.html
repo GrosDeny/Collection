@@ -16,6 +16,7 @@
         .header-content { flex: 1; }
         h1 { margin: 0; font-size: 1.2rem; }
         .badge { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; display: inline-block; margin-top: 5px; cursor: pointer; }
+        .badge.hidden { display: none !important; } /* Classe pour cacher le bouton settings */
         .btn-logout { background: rgba(255,255,255,0.2); border: none; color: white; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; margin-left: 10px; }
         .btn-logout:hover { background: rgba(255,255,255,0.4); }
         
@@ -115,7 +116,8 @@
     <header>
         <div class="header-content">
             <h1 id="app-title">Ma Médiathèque</h1>
-            <div class="badge" onclick="App.toggleSettings()">⚙️</div>
+            <!-- Le badge settings aura la classe 'hidden' si invité -->
+            <div class="badge" id="settings-badge" onclick="App.toggleSettings()">⚙️</div>
         </div>
         <button class="btn-logout" onclick="App.doLogout()">🚪 Déconnexion</button>
     </header>
@@ -224,6 +226,13 @@ const App = {
     },
 
     saveSettings: function() {
+        // BLOCAGE SÉCURITÉ : Les invités ne peuvent pas sauvegarder
+        if (this.state.isGuest) {
+            alert("⛔ Accès refusé : Seuls les administrateurs peuvent modifier l'interface.");
+            this.toggleSettings();
+            return;
+        }
+
         const s = {
             title: document.getElementById('setting-title').value || 'Ma Médiathèque',
             primary: document.getElementById('setting-primary').value,
@@ -237,8 +246,13 @@ const App = {
         s.darkMode ? document.body.classList.add('dark-mode') : document.body.classList.remove('dark-mode');
         this.toggleSettings(); alert("✅ Enregistré !");
     },
-    resetSettings: function() { localStorage.removeItem('appSettings'); location.reload(); },
-    toggleSettings: function() { document.getElementById('settings-modal').style.display = document.getElementById('settings-modal').style.display === 'flex' ? 'none' : 'flex'; },
+    resetSettings: function() { 
+        if (this.state.isGuest) return alert("Accès refusé.");
+        localStorage.removeItem('appSettings'); location.reload(); 
+    },
+    toggleSettings: function() { 
+        document.getElementById('settings-modal').style.display = document.getElementById('settings-modal').style.display === 'flex' ? 'none' : 'flex'; 
+    },
 
     setSort: function(criteria) {
         this.state.sortBy = criteria;
@@ -325,13 +339,16 @@ const App = {
         
         const adminElements = document.querySelectorAll('.admin-only');
         const guestNotice = document.getElementById('guest-notice');
+        const settingsBadge = document.getElementById('settings-badge');
         
         if (isAdmin) {
             adminElements.forEach(el => el.style.display = 'block');
             guestNotice.style.display = 'none';
+            settingsBadge.classList.remove('hidden'); // Afficher settings
         } else {
             adminElements.forEach(el => el.style.display = 'none');
             guestNotice.style.display = 'block';
+            settingsBadge.classList.add('hidden'); // Cacher settings
         }
 
         this.loadCollection();
@@ -379,7 +396,6 @@ const App = {
         } else { list.style.display = 'none'; }
     },
 
-    // --- FONCTION CORRIGÉE ---
     renderList: function() {
         const list = document.getElementById('list');
         const search = document.getElementById('search-list').value.toLowerCase();
@@ -405,7 +421,6 @@ const App = {
         const isGuest = this.state.isGuest;
 
         filtered.forEach(item => {
-            // Construction sécurisée des boutons et actions
             let actionsHtml = '';
             let clickAction = '';
 
@@ -507,20 +522,36 @@ const App = {
         btn.disabled = false;
     },
 
+    // --- NOUVELLE LOGIQUE DE DOUBLON ---
     checkDuplicate: function(newItem, excludeId = null) {
+        // 1. Doublon strict (ISBN ou Titre+Auteur identique) -> BLOCAGE
         if (newItem.isbn) {
             const exists = this.state.collection.some(item => item.isbn === newItem.isbn && item.id !== excludeId);
-            if (exists) return { isDuplicate: true, reason: "Cet ISBN existe déjà." };
+            if (exists) return { type: 'block', reason: "Cet ISBN existe déjà." };
         }
-        if (!newItem.isbn && newItem.title) {
-            const exists = this.state.collection.some(item => 
-                (item.title || '').toLowerCase().trim() === newItem.title.toLowerCase().trim() && 
-                (item.author || '').toLowerCase().trim() === (newItem.author || '').toLowerCase().trim() &&
-                item.id !== excludeId
-            );
-            if (exists) return { isDuplicate: true, reason: "Ce Titre+Auteur existe déjà." };
+        
+        // Vérification Titre + Auteur exact
+        const exactMatch = this.state.collection.find(item => 
+            (item.title || '').toLowerCase().trim() === newItem.title.toLowerCase().trim() && 
+            (item.author || '').toLowerCase().trim() === (newItem.author || '').toLowerCase().trim() &&
+            item.id !== excludeId
+        );
+        if (exactMatch) return { type: 'block', reason: "Ce livre (Titre + Auteur) existe déjà." };
+
+        // 2. Doublon Titre seul (Auteur différent) -> CONFIRMATION
+        const titleMatch = this.state.collection.find(item => 
+            (item.title || '').toLowerCase().trim() === newItem.title.toLowerCase().trim() &&
+            item.id !== excludeId
+        );
+
+        if (titleMatch) {
+            return { 
+                type: 'confirm', 
+                reason: `Un livre intitulé "${titleMatch.title}" existe déjà (par ${titleMatch.author || 'un auteur inconnu'}). Voulez-vous vraiment l'ajouter ?` 
+            };
         }
-        return { isDuplicate: false };
+
+        return { type: 'ok' };
     },
 
     addItemAndNext: async function() {
@@ -530,8 +561,16 @@ const App = {
         if (!title) return alert("Titre requis");
 
         const newItem = { title, author: document.getElementById('item-author').value, year: document.getElementById('item-year').value, category: document.getElementById('category').value, isbn, dateAdded: new Date().toISOString(), user_id: this.state.user.id };
+        
         const check = this.checkDuplicate(newItem);
-        if (check.isDuplicate) return alert("⚠️ Doublon : " + check.reason);
+        
+        if (check.type === 'block') {
+            return alert("⚠️ Doublon détecté : " + check.reason);
+        } else if (check.type === 'confirm') {
+            if (!confirm(check.reason)) {
+                return; // L'utilisateur annule
+            }
+        }
 
         const btn = document.getElementById('btn-add');
         btn.disabled = true; btn.textContent = "Ajout...";
@@ -575,8 +614,13 @@ const App = {
             document.getElementById('item-year').value = c.year || '';
             if(c.category) document.getElementById('category').value = c.category;
             const check = this.checkDuplicate({ isbn, title: c.title, author: c.author });
-            status.textContent = check.isDuplicate ? "⚠️ Déjà dans la collection !" : "🟢 Retrouvé en mémoire !";
-            status.className = check.isDuplicate ? "status-msg warning" : "status-msg success";
+            if (check.type === 'block') {
+                status.textContent = "⚠️ Déjà dans la collection !";
+                status.className = "status-msg warning";
+            } else {
+                status.textContent = "🟢 Retrouvé en mémoire !";
+                status.className = "status-msg success";
+            }
         } else { status.textContent = "⚪ Nouveau livre."; status.className = "status-msg info"; }
     },
 
