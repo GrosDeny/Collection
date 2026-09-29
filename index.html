@@ -12,9 +12,12 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; line-height: 1.6; transition: background-color 0.3s, color 0.3s; }
         .container { max-width: 600px; margin: 0 auto; padding: 10px; }
         
-        header { background: var(--primary); color: white; padding: 15px; text-align: center; border-radius: 0 0 10px 10px; margin-bottom: 20px; transition: background-color 0.3s; }
+        header { background: var(--primary); color: white; padding: 15px; text-align: center; border-radius: 0 0 10px 10px; margin-bottom: 20px; transition: background-color 0.3s; display: flex; justify-content: space-between; align-items: center; }
+        .header-content { flex: 1; }
         h1 { margin: 0; font-size: 1.2rem; }
         .badge { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; display: inline-block; margin-top: 5px; cursor: pointer; }
+        .btn-logout { background: rgba(255,255,255,0.2); border: none; color: white; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; margin-left: 10px; }
+        .btn-logout:hover { background: rgba(255,255,255,0.4); }
         
         .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; transition: background-color 0.3s; position: relative; }
         label { font-weight: 600; font-size: 0.85rem; color: var(--text); opacity: 0.8; display: block; margin-top: 10px; }
@@ -45,7 +48,6 @@
         .tab-count { font-size: 0.7rem; background: var(--border); color: var(--text); padding: 1px 6px; border-radius: 10px; font-weight: normal; }
         .tab-btn.active .tab-count { background: var(--accent); color: white; }
 
-        /* Contrôles de tri */
         .sort-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 0.9rem; color: var(--text); opacity: 0.8; }
         .sort-btn { background: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 20px; cursor: pointer; color: var(--text); font-size: 0.8rem; margin-left: 5px; }
         .sort-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
@@ -60,6 +62,7 @@
         .btn-delete { background: #ffebee; color: #e74c3c; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; }
         
         #auth-container { max-width: 400px; margin: 50px auto; background: var(--card-bg); padding: 30px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .btn-guest { background-color: #95a5a6; color: white; border: none; padding: 15px; border-radius: 8px; font-size: 1rem; font-weight: bold; width: 100%; margin-top: 10px; cursor: pointer; }
 
         #reader { width: 100%; border-radius: 8px; overflow: hidden; display: none; margin-bottom: 15px; background: #000; }
         #reader video { width: 100%; height: auto; }
@@ -72,6 +75,9 @@
         .color-picker-row input[type="color"] { width: 50px; height: 50px; padding: 0; border: none; cursor: pointer; }
         .btn-save { background: var(--accent); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         .btn-reset { background: transparent; color: var(--text); border: 1px solid var(--border); padding: 8px; width: 100%; border-radius: 8px; cursor: pointer; margin-top: 10px; font-size: 0.9rem; }
+        
+        /* Classe utilitaire pour cacher les éléments en mode invité */
+        .admin-only { display: none; }
     </style>
 </head>
 <body>
@@ -89,22 +95,35 @@
     </div>
 </div>
 
+<!-- Écran de Connexion -->
 <div id="auth-container">
-    <h2>Connexion</h2>
+    <h2>Bienvenue</h2>
+    <p style="color:var(--text); opacity:0.7; margin-bottom:20px;">Connectez-vous pour gérer ou accédez en invité pour consulter.</p>
+    
     <input type="email" id="auth-email" placeholder="Email">
     <input type="password" id="auth-password" placeholder="Mot de passe">
-    <button class="btn-add" onclick="App.doLogin()">Entrer</button>
-    <div id="login-msg" class="status-msg" style="color:#e74c3c"></div>
+    <button class="btn-add" onclick="App.doLogin()">🔐 Se Connecter</button>
+    
+    <div style="margin: 15px 0; border-top: 1px solid var(--border);"></div>
+    
+    <button class="btn-guest" onclick="App.loginAsGuest()">👤 Accéder en Invité</button>
+    
+    <div id="login-msg" class="status-msg" style="color:#e74c3c; margin-top:15px;"></div>
 </div>
 
+<!-- Application -->
 <div id="app-content" style="display:none;">
     <header>
-        <h1 id="app-title">Ma Médiathèque</h1>
-        <div class="badge" onclick="App.toggleSettings()">⚙️</div>
+        <div class="header-content">
+            <h1 id="app-title">Ma Médiathèque</h1>
+            <div class="badge" onclick="App.toggleSettings()">⚙️</div>
+        </div>
+        <button class="btn-logout" onclick="App.doLogout()">🚪 Déconnexion</button>
     </header>
 
     <div class="container">
-        <div class="card">
+        <!-- Formulaire (Caché pour les invités) -->
+        <div class="card admin-only">
             <label>Scanner</label>
             <button class="btn-camera" onclick="App.toggleCamera()">📷 Activer la caméra</button>
             <div id="reader"></div>
@@ -147,10 +166,10 @@
             <button id="btn-cancel-edit" onclick="App.cancelEdit()" style="display:none; width:100%; padding:10px; margin-top:5px; background:#95a5a6; color:white; border:none; border-radius:8px; cursor:pointer;">Annuler l'édition</button>
         </div>
 
+        <!-- Liste (Visible pour tous) -->
         <div class="card">
             <div class="tabs" id="tabs-container"></div>
             
-            <!-- Contrôles de recherche et tri -->
             <div class="sort-controls">
                 <span>🔍 Rechercher...</span>
                 <div>
@@ -162,6 +181,9 @@
             <input type="text" id="search-list" placeholder="Titre ou Auteur..." onkeyup="App.renderList()" style="margin-top:5px;">
             
             <ul id="list"></ul>
+            <div id="guest-notice" style="text-align:center; font-size:0.8rem; color:var(--text); opacity:0.6; margin-top:10px; display:none;">
+                👁️ Mode Invité : Consultation seule
+            </div>
         </div>
     </div>
 </div>
@@ -174,9 +196,9 @@ const App = {
     },
     categories: ['Tous', 'Livre', 'JdR', 'Jeu de Société', 'Vinyle', 'BD', 'Manga'],
     state: { 
-        user: null, collection: [], localCache: JSON.parse(localStorage.getItem('bookCache') || '{}'),
+        user: null, isGuest: false, collection: [], localCache: JSON.parse(localStorage.getItem('bookCache') || '{}'),
         currentFilter: 'Tous', scannerActive: false, html5QrcodeScanner: null, isEditing: false,
-        sortBy: 'title' // 'title' ou 'author'
+        sortBy: 'title'
     },
     supabase: null, searchTimeout: null,
 
@@ -219,7 +241,6 @@ const App = {
     resetSettings: function() { localStorage.removeItem('appSettings'); location.reload(); },
     toggleSettings: function() { document.getElementById('settings-modal').style.display = document.getElementById('settings-modal').style.display === 'flex' ? 'none' : 'flex'; },
 
-    // --- TRI ---
     setSort: function(criteria) {
         this.state.sortBy = criteria;
         document.getElementById('sort-title').classList.toggle('active', criteria === 'title');
@@ -248,30 +269,101 @@ const App = {
     },
 
     checkSession: async function() {
+        // Vérifie si une session existe déjà (rechargement de page)
         const { data } = await this.supabase.auth.getSession();
         if (data.session) {
             this.state.user = data.session.user;
-            document.getElementById('auth-container').style.display = 'none';
-            document.getElementById('app-content').style.display = 'block';
-            this.loadCollection();
-            setTimeout(() => document.getElementById('isbn').focus(), 500);
+            this.state.isGuest = false;
+            this.showApp(true);
+        } else if (localStorage.getItem('guestSession') === 'true') {
+            this.state.isGuest = true;
+            this.showApp(false);
+        } else {
+            document.getElementById('auth-container').style.display = 'block';
+            document.getElementById('app-content').style.display = 'none';
         }
     },
+
     doLogin: async function() {
-        const { error } = await this.supabase.auth.signInWithPassword({ email: document.getElementById('auth-email').value, password: document.getElementById('auth-password').value });
-        if (error) document.getElementById('login-msg').textContent = "Erreur: " + error.message; else window.location.reload();
+        const email = document.getElementById('auth-email').value;
+        const pass = document.getElementById('auth-password').value;
+        const msg = document.getElementById('login-msg');
+        msg.textContent = "Connexion...";
+        
+        const { error } = await this.supabase.auth.signInWithPassword({ email, password: pass });
+        if (error) {
+            msg.textContent = "Erreur: " + error.message;
+        } else {
+            this.state.isGuest = false;
+            window.location.reload();
+        }
+    },
+
+    loginAsGuest: function() {
+        this.state.isGuest = true;
+        localStorage.setItem('guestSession', 'true');
+        this.showApp(false);
+    },
+
+    doLogout: async function() {
+        if (!this.state.isGuest) {
+            await this.supabase.auth.signOut();
+        }
+        this.state.user = null;
+        this.state.isGuest = false;
+        this.state.collection = [];
+        localStorage.removeItem('guestSession');
+        
+        // Reset UI
+        document.getElementById('auth-container').style.display = 'block';
+        document.getElementById('app-content').style.display = 'none';
+        document.getElementById('auth-email').value = '';
+        document.getElementById('auth-password').value = '';
+        document.getElementById('login-msg').textContent = '';
+    },
+
+    showApp: function(isAdmin) {
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('app-content').style.display = 'block';
+        
+        // Gestion des droits
+        const adminElements = document.querySelectorAll('.admin-only');
+        const guestNotice = document.getElementById('guest-notice');
+        
+        if (isAdmin) {
+            adminElements.forEach(el => el.style.display = 'block');
+            guestNotice.style.display = 'none';
+        } else {
+            adminElements.forEach(el => el.style.display = 'none');
+            guestNotice.style.display = 'block';
+        }
+
+        this.loadCollection();
     },
 
     loadCollection: async function() {
-        if (!this.state.user) return;
-        const { data } = await this.supabase.from('collection').select('*').eq('user_id', this.state.user.id).order('dateAdded', { ascending: false });
-        this.state.collection = data || [];
-        this.renderTabs(); this.renderList();
+        // Les invités peuvent aussi lire les données (RLS doit autoriser le select pour 'anon')
+        if (!this.state.user && !this.state.isGuest) return;
+        
+        const { data, error } = await this.supabase.from('collection').select('*').order('dateAdded', { ascending: false });
+        
+        if (error) {
+            console.error("Erreur chargement:", error);
+            // En cas d'erreur de permission pour l'invité, on affiche une liste vide ou un message
+            if (!this.state.isGuest) alert("Erreur de chargement");
+            this.state.collection = [];
+        } else {
+            this.state.collection = data || [];
+        }
+        
+        this.renderTabs(); 
+        this.renderList();
     },
 
     setFilter: function(cat, btn) { this.state.currentFilter = cat; this.renderTabs(); document.getElementById('search-list').value = ''; this.renderList(); },
 
     showSuggestions: function(field) {
+        if (this.state.isGuest) return; // Pas de suggestions pour les invités (pas de saisie)
         const input = document.getElementById(`item-${field}`);
         const val = input.value.toLowerCase();
         const list = document.getElementById(`${field}-suggestions`);
@@ -298,38 +390,44 @@ const App = {
         const search = document.getElementById('search-list').value.toLowerCase();
         list.innerHTML = '';
 
-        // 1. Filtrer
         let filtered = this.state.collection.filter(item => {
             const matchCat = this.state.currentFilter === 'Tous' || item.category === this.state.currentFilter;
             const matchSearch = (item.title || '').toLowerCase().includes(search) || (item.author || '').toLowerCase().includes(search);
             return matchCat && matchSearch;
         });
 
-        // 2. Trier
         filtered.sort((a, b) => {
             const valA = (a[this.state.sortBy] || '').toLowerCase().trim();
             const valB = (b[this.state.sortBy] || '').toLowerCase().trim();
-            // Ignorer les articles (le, la, les) au début pour le tri par titre si besoin, mais ici tri simple
             return valA.localeCompare(valB, 'fr', { sensitivity: 'base' });
         });
 
         if (filtered.length === 0) { list.innerHTML = '<li style="text-align:center; opacity:0.6; padding:20px;">Aucun ouvrage.</li>'; return; }
 
+        // Si invité, on n'affiche pas les boutons d'action
+        const actionsHtml = this.state.isGuest ? '' : `
+            <div class="item-actions">
+                <button class="btn-edit" onclick="App.editItem(${item.id})">✏️</button>
+                <button class="btn-delete" onclick="App.deleteItem(${item.id})">✕</button>
+            </div>
+        `;
+        
+        // Si invité, le clic sur le titre ne fait rien (pas d'édition)
+        const clickAction = this.state.isGuest ? '' : `onclick="App.editItem(${item.id})"`;
+
         filtered.forEach(item => {
             list.innerHTML += `<li class="item-card">
-                <div class="item-info" onclick="App.editItem(${item.id})">
+                <div class="item-info" ${clickAction}>
                     <span class="item-title">${item.title}</span>
                     <span class="item-meta">${item.author || ''} • ${item.year || ''} • <b>${item.category}</b></span>
                 </div>
-                <div class="item-actions">
-                    <button class="btn-edit" onclick="App.editItem(${item.id})">✏️</button>
-                    <button class="btn-delete" onclick="App.deleteItem(${item.id})">✕</button>
-                </div>
+                ${actionsHtml}
             </li>`;
         });
     },
 
     editItem: function(id) {
+        if (this.state.isGuest) return; // Sécurité supplémentaire
         const item = this.state.collection.find(i => i.id === id);
         if (!item) return;
 
@@ -368,31 +466,27 @@ const App = {
     },
 
     handleFormSubmit: function() {
+        if (this.state.isGuest) return;
         if (this.state.isEditing) this.updateItem();
         else this.addItemAndNext();
     },
 
     updateItem: async function() {
+        if (this.state.isGuest) return;
         const id = document.getElementById('edit-id').value;
         const title = document.getElementById('item-title').value;
         const isbn = document.getElementById('isbn').value.replace(/[^0-9X]/g, '').toUpperCase();
         
         if (!title) return alert("Titre requis");
-
         if (isbn) {
             const exists = this.state.collection.some(i => i.isbn === isbn && i.id != id);
-            if (exists) return alert("⚠️ Cet ISBN existe déjà sur un autre livre !");
+            if (exists) return alert("⚠️ Cet ISBN existe déjà !");
         }
 
         const btn = document.getElementById('btn-add');
         btn.disabled = true; btn.textContent = "Mise à jour...";
 
-        const updates = {
-            title, author: document.getElementById('item-author').value,
-            year: document.getElementById('item-year').value, category: document.getElementById('category').value,
-            isbn
-        };
-
+        const updates = { title, author: document.getElementById('item-author').value, year: document.getElementById('item-year').value, category: document.getElementById('category').value, isbn };
         const { error } = await this.supabase.from('collection').update(updates).eq('id', id);
 
         if (error) alert("Erreur: " + error.message);
@@ -403,7 +497,7 @@ const App = {
             }
             this.cancelEdit();
             this.loadCollection();
-            alert("✅ Livre mis à jour !");
+            alert("✅ Mis à jour !");
         }
         btn.disabled = false;
     },
@@ -425,22 +519,17 @@ const App = {
     },
 
     addItemAndNext: async function() {
+        if (this.state.isGuest) return;
         const title = document.getElementById('item-title').value;
         const isbn = document.getElementById('isbn').value.replace(/[^0-9X]/g, '').toUpperCase();
         if (!title) return alert("Titre requis");
 
-        const newItem = {
-            title, author: document.getElementById('item-author').value,
-            year: document.getElementById('item-year').value, category: document.getElementById('category').value,
-            isbn, dateAdded: new Date().toISOString(), user_id: this.state.user.id
-        };
-
+        const newItem = { title, author: document.getElementById('item-author').value, year: document.getElementById('item-year').value, category: document.getElementById('category').value, isbn, dateAdded: new Date().toISOString(), user_id: this.state.user.id };
         const check = this.checkDuplicate(newItem);
         if (check.isDuplicate) return alert("⚠️ Doublon : " + check.reason);
 
         const btn = document.getElementById('btn-add');
         btn.disabled = true; btn.textContent = "Ajout...";
-
         const { error } = await this.supabase.from('collection').insert([newItem]);
 
         if (error) alert("Erreur: " + error.message);
@@ -467,10 +556,12 @@ const App = {
     },
 
     deleteItem: async function(id) {
+        if (this.state.isGuest) return;
         if(confirm("Supprimer ?")) { await this.supabase.from('collection').delete().eq('id', id); this.loadCollection(); }
     },
 
     checkCache: function(isbn) {
+        if (this.state.isGuest) return;
         const status = document.getElementById('search-status');
         if (this.state.localCache[isbn]) {
             const c = this.state.localCache[isbn];
@@ -485,6 +576,7 @@ const App = {
     },
 
     toggleCamera: function() {
+        if (this.state.isGuest) return;
         const readerDiv = document.getElementById('reader');
         if (this.state.scannerActive) {
             if (this.state.html5QrcodeScanner) { this.state.html5QrcodeScanner.stop().then(() => { this.state.html5QrcodeScanner.clear(); this.state.scannerActive = false; readerDiv.style.display = 'none'; }); }
