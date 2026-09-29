@@ -22,12 +22,7 @@
         input:focus, select:focus { border-color: var(--primary); outline: none; background: var(--card-bg); }
         .isbn-section input { font-family: monospace; font-size: 1.2rem; letter-spacing: 1px; border-color: var(--primary); }
         
-        /* Liste d'auto-complétion personnalisée */
-        .autocomplete-list {
-            position: absolute; z-index: 100; background: var(--card-bg); border: 1px solid var(--border);
-            border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto;
-            display: none; width: calc(100% - 30px); margin-top: -10px;
-        }
+        .autocomplete-list { position: absolute; z-index: 100; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; display: none; width: calc(100% - 30px); margin-top: -10px; }
         .autocomplete-item { padding: 12px; cursor: pointer; border-bottom: 1px solid var(--border); }
         .autocomplete-item:hover { background-color: var(--bg); }
         .autocomplete-item:last-child { border-bottom: none; }
@@ -50,6 +45,11 @@
         .tab-count { font-size: 0.7rem; background: var(--border); color: var(--text); padding: 1px 6px; border-radius: 10px; font-weight: normal; }
         .tab-btn.active .tab-count { background: var(--accent); color: white; }
 
+        /* Contrôles de tri */
+        .sort-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 0.9rem; color: var(--text); opacity: 0.8; }
+        .sort-btn { background: none; border: 1px solid var(--border); padding: 5px 10px; border-radius: 20px; cursor: pointer; color: var(--text); font-size: 0.8rem; margin-left: 5px; }
+        .sort-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
         #list { list-style: none; padding: 0; }
         .item-card { background: var(--card-bg); padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .item-info { flex: 1; cursor: pointer; }
@@ -64,7 +64,6 @@
         #reader { width: 100%; border-radius: 8px; overflow: hidden; display: none; margin-bottom: 15px; background: #000; }
         #reader video { width: 100%; height: auto; }
 
-        /* Modal Settings */
         #settings-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
         .modal-content { background: var(--card-bg); padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .modal-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: var(--text); display: flex; justify-content: space-between; }
@@ -143,17 +142,25 @@
                 <option value="Manga">🇯🇵 Manga</option>
             </select>
 
-            <!-- Champ caché pour stocker l'ID lors de l'édition -->
             <input type="hidden" id="edit-id">
-
             <button class="btn-add" id="btn-add" onclick="App.handleFormSubmit()">✅ Valider & Suivant</button>
             <button id="btn-cancel-edit" onclick="App.cancelEdit()" style="display:none; width:100%; padding:10px; margin-top:5px; background:#95a5a6; color:white; border:none; border-radius:8px; cursor:pointer;">Annuler l'édition</button>
         </div>
 
         <div class="card">
             <div class="tabs" id="tabs-container"></div>
-            <label>🔍 Rechercher</label>
-            <input type="text" id="search-list" placeholder="Titre ou Auteur..." onkeyup="App.renderList()">
+            
+            <!-- Contrôles de recherche et tri -->
+            <div class="sort-controls">
+                <span>🔍 Rechercher...</span>
+                <div>
+                    Trier par : 
+                    <button class="sort-btn active" id="sort-title" onclick="App.setSort('title')">Titre</button>
+                    <button class="sort-btn" id="sort-author" onclick="App.setSort('author')">Auteur</button>
+                </div>
+            </div>
+            <input type="text" id="search-list" placeholder="Titre ou Auteur..." onkeyup="App.renderList()" style="margin-top:5px;">
+            
             <ul id="list"></ul>
         </div>
     </div>
@@ -168,7 +175,8 @@ const App = {
     categories: ['Tous', 'Livre', 'JdR', 'Jeu de Société', 'Vinyle', 'BD', 'Manga'],
     state: { 
         user: null, collection: [], localCache: JSON.parse(localStorage.getItem('bookCache') || '{}'),
-        currentFilter: 'Tous', scannerActive: false, html5QrcodeScanner: null, isEditing: false
+        currentFilter: 'Tous', scannerActive: false, html5QrcodeScanner: null, isEditing: false,
+        sortBy: 'title' // 'title' ou 'author'
     },
     supabase: null, searchTimeout: null,
 
@@ -178,7 +186,6 @@ const App = {
         this.checkSession();
         this.renderTabs();
         
-        // Fermer les suggestions si on clique ailleurs
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.autocomplete-list') && !e.target.id.includes('item-')) {
                 document.querySelectorAll('.autocomplete-list').forEach(el => el.style.display = 'none');
@@ -211,6 +218,14 @@ const App = {
     },
     resetSettings: function() { localStorage.removeItem('appSettings'); location.reload(); },
     toggleSettings: function() { document.getElementById('settings-modal').style.display = document.getElementById('settings-modal').style.display === 'flex' ? 'none' : 'flex'; },
+
+    // --- TRI ---
+    setSort: function(criteria) {
+        this.state.sortBy = criteria;
+        document.getElementById('sort-title').classList.toggle('active', criteria === 'title');
+        document.getElementById('sort-author').classList.toggle('active', criteria === 'author');
+        this.renderList();
+    },
 
     getCounts: function() {
         const counts = {}; this.categories.forEach(c => counts[c] = 0);
@@ -256,7 +271,6 @@ const App = {
 
     setFilter: function(cat, btn) { this.state.currentFilter = cat; this.renderTabs(); document.getElementById('search-list').value = ''; this.renderList(); },
 
-    // --- AUTO-COMPLÉTION ---
     showSuggestions: function(field) {
         const input = document.getElementById(`item-${field}`);
         const val = input.value.toLowerCase();
@@ -264,7 +278,6 @@ const App = {
         list.innerHTML = '';
         if (val.length < 2) { list.style.display = 'none'; return; }
 
-        // Extraire les valeurs uniques de la collection
         const uniqueValues = [...new Set(this.state.collection.map(item => item[field]).filter(Boolean))];
         const matches = uniqueValues.filter(v => v.toLowerCase().includes(val)).slice(0, 5);
 
@@ -277,19 +290,27 @@ const App = {
                 div.onclick = () => { input.value = match; list.style.display = 'none'; };
                 list.appendChild(div);
             });
-        } else {
-            list.style.display = 'none';
-        }
+        } else { list.style.display = 'none'; }
     },
 
     renderList: function() {
         const list = document.getElementById('list');
         const search = document.getElementById('search-list').value.toLowerCase();
         list.innerHTML = '';
-        const filtered = this.state.collection.filter(item => {
+
+        // 1. Filtrer
+        let filtered = this.state.collection.filter(item => {
             const matchCat = this.state.currentFilter === 'Tous' || item.category === this.state.currentFilter;
             const matchSearch = (item.title || '').toLowerCase().includes(search) || (item.author || '').toLowerCase().includes(search);
             return matchCat && matchSearch;
+        });
+
+        // 2. Trier
+        filtered.sort((a, b) => {
+            const valA = (a[this.state.sortBy] || '').toLowerCase().trim();
+            const valB = (b[this.state.sortBy] || '').toLowerCase().trim();
+            // Ignorer les articles (le, la, les) au début pour le tri par titre si besoin, mais ici tri simple
+            return valA.localeCompare(valB, 'fr', { sensitivity: 'base' });
         });
 
         if (filtered.length === 0) { list.innerHTML = '<li style="text-align:center; opacity:0.6; padding:20px;">Aucun ouvrage.</li>'; return; }
@@ -308,7 +329,6 @@ const App = {
         });
     },
 
-    // --- ÉDITION ---
     editItem: function(id) {
         const item = this.state.collection.find(i => i.id === id);
         if (!item) return;
@@ -323,11 +343,11 @@ const App = {
         
         const btn = document.getElementById('btn-add');
         btn.textContent = "💾 Mettre à jour";
-        btn.style.backgroundColor = "#3498db"; // Bleu pour édition
+        btn.style.backgroundColor = "#3498db";
         document.getElementById('btn-cancel-edit').style.display = 'block';
         
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        document.getElementById('search-status').textContent = "Mode Édition activé";
+        document.getElementById('search-status').textContent = "Mode Édition";
         document.getElementById('search-status').className = "status-msg info";
     },
 
@@ -342,7 +362,7 @@ const App = {
         
         const btn = document.getElementById('btn-add');
         btn.textContent = "✅ Valider & Suivant";
-        btn.style.backgroundColor = ""; // Retour couleur par défaut
+        btn.style.backgroundColor = "";
         document.getElementById('btn-cancel-edit').style.display = 'none';
         document.getElementById('search-status').textContent = "";
     },
@@ -359,7 +379,6 @@ const App = {
         
         if (!title) return alert("Titre requis");
 
-        // Vérifier doublon ISBN (excluant l'item actuel)
         if (isbn) {
             const exists = this.state.collection.some(i => i.isbn === isbn && i.id != id);
             if (exists) return alert("⚠️ Cet ISBN existe déjà sur un autre livre !");
@@ -378,7 +397,6 @@ const App = {
 
         if (error) alert("Erreur: " + error.message);
         else {
-            // Mettre à jour le cache local si ISBN changé ou nouveau
             if (isbn) {
                 this.state.localCache[isbn] = { title, author: updates.author, year: updates.year, category: updates.category };
                 localStorage.setItem('bookCache', JSON.stringify(this.state.localCache));
@@ -390,7 +408,6 @@ const App = {
         btn.disabled = false;
     },
 
-    // --- AJOUT ---
     checkDuplicate: function(newItem, excludeId = null) {
         if (newItem.isbn) {
             const exists = this.state.collection.some(item => item.isbn === newItem.isbn && item.id !== excludeId);
