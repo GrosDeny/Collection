@@ -16,7 +16,7 @@
         .header-content { flex: 1; }
         h1 { margin: 0; font-size: 1.2rem; }
         .badge { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; display: inline-block; margin-top: 5px; cursor: pointer; }
-        .badge.hidden { display: none !important; } /* Classe pour cacher le bouton settings */
+        .badge.hidden { display: none !important; }
         .btn-logout { background: rgba(255,255,255,0.2); border: none; color: white; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; margin-left: 10px; }
         .btn-logout:hover { background: rgba(255,255,255,0.4); }
         
@@ -54,11 +54,26 @@
         .sort-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
         #list { list-style: none; padding: 0; }
-        .item-card { background: var(--card-bg); padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .item-info { flex: 1; cursor: pointer; }
-        .item-title { font-weight: bold; display: block; font-size: 1rem; color: var(--text); }
+        .item-card { background: var(--card-bg); padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.1s; }
+        .item-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        .item-info { flex: 1; cursor: pointer; position: relative; }
+        /* Indicateur visuel pour le lien externe */
+        .item-info.has-link::after {
+            content: '🔗';
+            font-size: 0.7rem;
+            position: absolute;
+            right: -5px;
+            top: -5px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .item-info.has-link:hover::after { opacity: 1; }
+        .item-info.has-link:hover .item-title { color: var(--primary); text-decoration: underline; }
+
+        .item-title { font-weight: bold; display: block; font-size: 1rem; color: var(--text); transition: color 0.2s; }
         .item-meta { font-size: 0.85rem; opacity: 0.7; display: block; margin-top: 4px; }
-        .item-actions { display: flex; gap: 5px; }
+        .item-actions { display: flex; gap: 5px; z-index: 10; position: relative; }
         .btn-edit { background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; }
         .btn-delete { background: #ffebee; color: #e74c3c; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; }
         
@@ -116,7 +131,6 @@
     <header>
         <div class="header-content">
             <h1 id="app-title">Ma Médiathèque</h1>
-            <!-- Le badge settings aura la classe 'hidden' si invité -->
             <div class="badge" id="settings-badge" onclick="App.toggleSettings()">⚙️</div>
         </div>
         <button class="btn-logout" onclick="App.doLogout()">🚪 Déconnexion</button>
@@ -155,7 +169,7 @@
             <select id="category">
                 <option value="Tous">📂 Tous</option>
                 <option value="Livre">📖 Livre</option>
-                <option value="JdR">🎲 JdR</option>
+                <option value="JdR">🎲 Jeu de Rôle</option>
                 <option value="Jeu de Société">🧩 Jeu de Société</option>
                 <option value="Vinyle">💿 Vinyle</option>
                 <option value="BD">🎨 BD</option>
@@ -226,13 +240,11 @@ const App = {
     },
 
     saveSettings: function() {
-        // BLOCAGE SÉCURITÉ : Les invités ne peuvent pas sauvegarder
         if (this.state.isGuest) {
             alert("⛔ Accès refusé : Seuls les administrateurs peuvent modifier l'interface.");
             this.toggleSettings();
             return;
         }
-
         const s = {
             title: document.getElementById('setting-title').value || 'Ma Médiathèque',
             primary: document.getElementById('setting-primary').value,
@@ -344,11 +356,11 @@ const App = {
         if (isAdmin) {
             adminElements.forEach(el => el.style.display = 'block');
             guestNotice.style.display = 'none';
-            settingsBadge.classList.remove('hidden'); // Afficher settings
+            settingsBadge.classList.remove('hidden');
         } else {
             adminElements.forEach(el => el.style.display = 'none');
             guestNotice.style.display = 'block';
-            settingsBadge.classList.add('hidden'); // Cacher settings
+            settingsBadge.classList.add('hidden');
         }
 
         this.loadCollection();
@@ -396,6 +408,22 @@ const App = {
         } else { list.style.display = 'none'; }
     },
 
+    // --- FONCTION POUR GÉNÉRER LE LIEN EXTERNE ---
+    getExternalLink: function(item) {
+        if (!item.isbn) return null; // Pas de lien si pas d'ISBN
+        const isbn = item.isbn.replace(/[^0-9X]/g, '');
+        
+        const cat = item.category;
+        if (['Livre', 'BD', 'Manga'].includes(cat)) {
+            return `https://www.chasse-aux-livres.fr/prix/${isbn}`;
+        } else if (['JdR', 'Jeu de Société'].includes(cat)) {
+            return `https://www.philibertnet.com/fr/recherche?search_query=${isbn}&results=20`;
+        } else if (cat === 'Vinyle') {
+            return `https://www.discogs.com/fr/search/?type=all&barcode=${isbn}`;
+        }
+        return null;
+    },
+
     renderList: function() {
         const list = document.getElementById('list');
         const search = document.getElementById('search-list').value.toLowerCase();
@@ -421,9 +449,23 @@ const App = {
         const isGuest = this.state.isGuest;
 
         filtered.forEach(item => {
-            let actionsHtml = '';
+            const linkUrl = this.getExternalLink(item);
+            const hasLink = !!linkUrl;
+            
+            // Gestion du clic sur la zone info
             let clickAction = '';
+            let infoClass = 'item-info';
+            if (hasLink) {
+                // Si lien externe : ouvrir dans un nouvel onglet
+                clickAction = `onclick="window.open('${linkUrl}', '_blank')"`;
+                infoClass += ' has-link';
+            } else if (!isGuest) {
+                // Si pas de lien mais admin : mode édition au clic
+                clickAction = `onclick="App.editItem(${item.id})"`;
+            }
 
+            // Boutons d'action (seulement si admin)
+            let actionsHtml = '';
             if (!isGuest) {
                 actionsHtml = `
                     <div class="item-actions">
@@ -431,13 +473,12 @@ const App = {
                         <button class="btn-delete" onclick="App.deleteItem(${item.id})">✕</button>
                     </div>
                 `;
-                clickAction = `onclick="App.editItem(${item.id})"`;
             }
 
             list.innerHTML += `
                 <li class="item-card">
-                    <div class="item-info" ${clickAction}>
-                        <span class="item-title">${item.title}</span>
+                    <div class="${infoClass}" ${clickAction}>
+                        <span class="item-title">${item.title} ${hasLink ? '<span style="font-size:0.7em; opacity:0.5;">🔗</span>' : ''}</span>
                         <span class="item-meta">${item.author || ''} • ${item.year || ''} • <b>${item.category}</b></span>
                     </div>
                     ${actionsHtml}
@@ -522,15 +563,12 @@ const App = {
         btn.disabled = false;
     },
 
-    // --- NOUVELLE LOGIQUE DE DOUBLON ---
     checkDuplicate: function(newItem, excludeId = null) {
-        // 1. Doublon strict (ISBN ou Titre+Auteur identique) -> BLOCAGE
         if (newItem.isbn) {
             const exists = this.state.collection.some(item => item.isbn === newItem.isbn && item.id !== excludeId);
             if (exists) return { type: 'block', reason: "Cet ISBN existe déjà." };
         }
         
-        // Vérification Titre + Auteur exact
         const exactMatch = this.state.collection.find(item => 
             (item.title || '').toLowerCase().trim() === newItem.title.toLowerCase().trim() && 
             (item.author || '').toLowerCase().trim() === (newItem.author || '').toLowerCase().trim() &&
@@ -538,7 +576,6 @@ const App = {
         );
         if (exactMatch) return { type: 'block', reason: "Ce livre (Titre + Auteur) existe déjà." };
 
-        // 2. Doublon Titre seul (Auteur différent) -> CONFIRMATION
         const titleMatch = this.state.collection.find(item => 
             (item.title || '').toLowerCase().trim() === newItem.title.toLowerCase().trim() &&
             item.id !== excludeId
@@ -568,7 +605,7 @@ const App = {
             return alert("⚠️ Doublon détecté : " + check.reason);
         } else if (check.type === 'confirm') {
             if (!confirm(check.reason)) {
-                return; // L'utilisateur annule
+                return;
             }
         }
 
